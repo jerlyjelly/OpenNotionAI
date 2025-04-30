@@ -33,5 +33,30 @@ export const en = {
   "keys-secure": "Your API keys are stored locally and never sent to our servers.",
   "chat-placeholder": "Type your message here...",
   "welcome-message": "Hello! I'm connected to your Notion database. How can I help you today?",
-  "error-message": "Sorry, there was an error processing your request. Please try again."
+  "error-message": "Sorry, there was an error processing your request. Please try again.",
+  "chat": "Chat",
+  "database": "Database",
+  "clear-chat": "Clear chat",
+  "copy-to-clipboard": "Copy to clipboard",
+  "export-conversation": "Export conversation",
+  "confirm-clear-chat": "Are you sure you want to clear the chat history?",
+  "export-successful": "Export Successful",
+  "conversation-exported": "Conversation has been exported to a JSON file.",
+  "copy-successful": "Copy Successful",
+  "conversation-copied": "Conversation has been copied to clipboard.",
+  
+  // Database Records
+  "view-records": "View Records",
+  "manage-records": "Manage Records",
+  "search-records": "Search records...",
+  "no-records-found": "No records found",
+  "database-records": "Database Records",
+  "new-record": "New Record",
+  "no-records": "No records found in database",
+  "create-record": "Create Record",
+  "edit-record": "Edit Record",
+  "cancel": "Cancel",
+  "create": "Create",
+  "update": "Update",
+  "confirm-delete": "Are you sure you want to delete this record?"
 };

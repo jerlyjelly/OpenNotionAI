@@ -18,6 +18,9 @@ interface ApiContextType {
   dbStructure: DatabaseStructure | null;
   chatWithLLM: (messages: ChatMessage[]) => Promise<string>;
   isProcessing: boolean;
+  notionClient: NotionClient | null;
+  reconnect: () => Promise<void>;
+  connectionError: string | null;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -35,6 +38,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
   // Client instances
   const [notionClient, setNotionClient] = useState<NotionClient | null>(null);
@@ -48,6 +52,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     if (isConnecting || isConnected) return;
     
     if (!notionApiKey || !notionDbId || !llmApiKey) {
+      setConnectionError("Missing API Keys");
       toast({
         title: "Missing API Keys",
         description: "Please provide all required API keys and database ID.",
@@ -57,6 +62,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     }
     
     setIsConnecting(true);
+    setConnectionError(null);
     
     try {
       // Create Notion client
@@ -80,14 +86,25 @@ export function ApiProvider({ children }: { children: ReactNode }) {
       });
     } catch (error) {
       console.error("Connection error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to connect to Notion or LLM provider";
+      setConnectionError(errorMessage);
       toast({
         title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to connect to Notion or LLM provider",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  // Reconnect with current settings
+  const reconnect = async () => {
+    if (isConnected) {
+      setIsConnected(false);
+      setDbStructure(null);
+    }
+    return connect();
   };
 
   // Chat with LLM
@@ -119,9 +136,12 @@ export function ApiProvider({ children }: { children: ReactNode }) {
         isConnecting,
         isConnected,
         connect,
+        reconnect,
         dbStructure,
         chatWithLLM,
-        isProcessing
+        isProcessing,
+        notionClient,
+        connectionError
       }}
     >
       {children}

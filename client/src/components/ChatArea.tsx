@@ -5,16 +5,27 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2 } from "lucide-react";
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { DBRecordManager } from "./DBRecordManager";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  timestamp?: string;
 }
 
 export function ChatArea() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const { 
     isConnected, 
     dbStructure,
@@ -24,6 +35,7 @@ export function ChatArea() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [activeTab, setActiveTab] = useState<string>("chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const scrollToBottom = () => {
@@ -31,8 +43,10 @@ export function ChatArea() {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (activeTab === "chat") {
+      scrollToBottom();
+    }
+  }, [messages, activeTab]);
 
   // Add welcome message when connected
   useEffect(() => {
@@ -41,7 +55,8 @@ export function ChatArea() {
         {
           id: "welcome",
           role: "assistant",
-          content: t("welcome-message")
+          content: t("welcome-message"),
+          timestamp: new Date().toISOString()
         }
       ]);
     }
@@ -54,7 +69,8 @@ export function ChatArea() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input
+      content: input,
+      timestamp: new Date().toISOString()
     };
 
     // Add user message to chat
@@ -86,7 +102,8 @@ export function ChatArea() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: response
+          content: response,
+          timestamp: new Date().toISOString()
         }
       ]);
     } catch (error) {
@@ -96,10 +113,67 @@ export function ChatArea() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: t("error-message")
+          content: t("error-message"),
+          timestamp: new Date().toISOString()
         }
       ]);
     }
+  };
+
+  const handleClearChat = () => {
+    if (window.confirm(t("confirm-clear-chat"))) {
+      setMessages([{
+        id: "welcome",
+        role: "assistant",
+        content: t("welcome-message"),
+        timestamp: new Date().toISOString()
+      }]);
+    }
+  };
+
+  const handleExportChat = () => {
+    const chatHistory = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      timestamp: msg.timestamp || new Date().toISOString()
+    }));
+
+    // Create exportable content
+    const exportContent = {
+      title: "Notion AI Chat Export",
+      timestamp: new Date().toISOString(),
+      messages: chatHistory,
+      dbStructure: dbStructure
+    };
+
+    // Create blob and download link
+    const blob = new Blob([JSON.stringify(exportContent, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `notion-ai-chat-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: t("export-successful"),
+      description: t("conversation-exported"),
+    });
+  };
+
+  const handleCopyToClipboard = () => {
+    const chatText = messages.map(msg => 
+      `${msg.role === "user" ? "You" : "Assistant"}: ${msg.content}`
+    ).join("\n\n");
+    
+    navigator.clipboard.writeText(chatText);
+    
+    toast({
+      title: t("copy-successful"),
+      description: t("conversation-copied"),
+    });
   };
 
   if (!isConnected) {
@@ -126,46 +200,101 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`px-4 py-2 rounded-lg max-w-[75%] ${
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-      
-      <div className="border-t p-4">
-        <form onSubmit={handleSubmit} className="flex space-x-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("chat-placeholder")}
-            disabled={isProcessing}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={isProcessing || !input.trim()}>
-            {isProcessing ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </Button>
-        </form>
+      <div className="border-b p-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="chat" className="flex items-center">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {t("chat")}
+            </TabsTrigger>
+            <TabsTrigger value="database" className="flex items-center">
+              <Database className="h-4 w-4 mr-2" />
+              {t("database")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
+
+      <TabsContent value="chat" className="flex-1 flex flex-col relative mt-0 p-0">
+        <div className="absolute top-2 right-2 z-10 flex space-x-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleClearChat}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("clear-chat")}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleCopyToClipboard}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("copy-to-clipboard")}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleExportChat}>
+                <Download className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("export-conversation")}</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <ScrollArea className="flex-1 px-4 pb-4 pt-10">
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`px-4 py-2 rounded-lg max-w-[75%] ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.timestamp && (
+                    <p className="text-xs opacity-70 mt-1">
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+        
+        <div className="border-t p-4">
+          <form onSubmit={handleSubmit} className="flex space-x-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("chat-placeholder")}
+              disabled={isProcessing}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={isProcessing || !input.trim()}>
+              {isProcessing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </form>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="database" className="flex-1 p-4 mt-0">
+        <DBRecordManager />
+      </TabsContent>
     </div>
   );
 }
