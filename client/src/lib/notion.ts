@@ -24,8 +24,9 @@ export class NotionClient {
   }
 
   private async fetchWithNotionAuth(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
-    const response = await fetch(`/api/notion?url=${encodeURIComponent(url)}`, {
+    // Construct the proxy URL by appending the relative Notion endpoint
+    const proxyUrl = `/api/notion${endpoint}`;
+    const response = await fetch(proxyUrl, { // Call the proxy endpoint directly
       ...options,
       headers: {
         ...options.headers,

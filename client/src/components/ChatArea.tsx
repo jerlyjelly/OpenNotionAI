@@ -200,8 +200,10 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="border-b p-2">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* Move Tabs component to wrap everything */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col h-full">
+        <div className="border-b p-2">
+          {/* TabsList remains here */}
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chat" className="flex items-center">
               <MessageCircle className="h-4 w-4 mr-2" />
@@ -212,13 +214,13 @@ export function ChatArea() {
               {t("database")}
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      <TabsContent value="chat" className="flex-1 flex flex-col relative mt-0 p-0">
-        <div className="absolute top-2 right-2 z-10 flex space-x-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
+        {/* TabsContent for chat now inside Tabs */}
+        <TabsContent value="chat" className="flex-1 flex flex-col relative mt-0 p-0 overflow-hidden">
+          <div className="absolute top-2 right-2 z-10 flex space-x-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={handleClearChat}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -292,9 +294,11 @@ export function ChatArea() {
         </div>
       </TabsContent>
 
-      <TabsContent value="database" className="flex-1 p-4 mt-0">
-        <DBRecordManager />
-      </TabsContent>
+        {/* TabsContent for database now inside Tabs */}
+        <TabsContent value="database" className="flex-1 p-4 mt-0 overflow-hidden">
+          <DBRecordManager />
+        </TabsContent>
+      </Tabs> {/* Tabs component now correctly closes here */}
     </div>
   );
 }

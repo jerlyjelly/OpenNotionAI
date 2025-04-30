@@ -255,17 +255,12 @@ export function DBRecordManager() {
   }
 
   return (
-    <div className="w-full">
-      <Tabs defaultValue="view">
-        <TabsList className="w-full mb-4">
-          <TabsTrigger value="view" className="flex-1">{t("view-records")}</TabsTrigger>
-          <TabsTrigger value="manage" className="flex-1">{t("manage-records")}</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="view" className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Search className="text-muted-foreground h-4 w-4" />
-            <Input
+    // Remove the outer Tabs component wrapper
+    <div className="w-full space-y-4">
+      {/* Keep the search bar */}
+      <div className="flex items-center space-x-2">
+        <Search className="text-muted-foreground h-4 w-4" />
+        <Input
               placeholder={t("search-records")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -340,12 +335,80 @@ export function DBRecordManager() {
               </div>
             )}
           </ScrollArea>
-        </TabsContent>
-        
-        <TabsContent value="manage" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">{t("database-records")}</h3>
-            <Button onClick={handleCreateRecord} disabled={isLoading}>
+      {/* Keep the "View" content's ScrollArea */}
+      <ScrollArea className="h-[300px] rounded-md border">
+        {/* ... (Keep the isLoading / no records / records list logic from the "view" tab) ... */}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : filteredRecords.length === 0 ? (
+          <div className="flex justify-center items-center h-full text-muted-foreground">
+            {t("no-records-found")}
+          </div>
+        ) : (
+          <div className="p-4 space-y-2">
+            {filteredRecords.map((record) => (
+              <div
+                key={record.id}
+                className="p-3 border rounded-md hover:bg-accent"
+              >
+                {/* Display first title or rich_text property as main title */}
+                {Object.entries(record.properties).map(([key, value]) => {
+                  if (value.title && value.title.length > 0) {
+                    return (
+                      <h3 key={key} className="font-medium">
+                        {value.title.map((t: any) => t.plain_text).join("")}
+                      </h3>
+                    );
+                  }
+                  return null;
+                })}
+                
+                {/* Display other important properties */}
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {Object.entries(record.properties)
+                    .filter(([_, value]) => !value.title) // Skip title properties
+                    .slice(0, 3) // Only show first 3 properties
+                    .map(([key, value]) => {
+                      const propName = dbStructure?.properties.find(p => p.id === key)?.name || key;
+                      let displayValue = "";
+                      
+                      if (value.rich_text && value.rich_text.length > 0) {
+                        displayValue = value.rich_text.map((t: any) => t.plain_text).join("");
+                      } else if (value.select && value.select.name) {
+                        displayValue = value.select.name;
+                      } else if (value.checkbox !== undefined) {
+                        displayValue = value.checkbox ? "Yes" : "No";
+                      } else if (value.number !== undefined) {
+                        displayValue = value.number.toString();
+                      } else if (value.multi_select) {
+                        displayValue = value.multi_select.map((s: any) => s.name).join(", ");
+                      } else if (value.date) {
+                        displayValue = value.date.start;
+                      }
+                      
+                      if (displayValue) {
+                        return (
+                          <div key={key} className="flex justify-between">
+                            <span>{propName}:</span>
+                            <span>{displayValue}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Keep the "Manage" section header and button */}
+      <div className="flex justify-between items-center pt-4">
+        <h3 className="text-lg font-medium">{t("database-records")}</h3>
+        <Button onClick={handleCreateRecord} disabled={isLoading}>
               <Plus className="h-4 w-4 mr-2" />
               {t("new-record")}
             </Button>
@@ -408,10 +471,67 @@ export function DBRecordManager() {
               </div>
             )}
           </ScrollArea>
-        </TabsContent>
-      </Tabs>
+      {/* Keep the "Manage" content's ScrollArea */}
+      <ScrollArea className="h-[300px] rounded-md border">
+        {/* ... (Keep the isLoading / no records / records list logic from the "manage" tab) ... */}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : records.length === 0 ? (
+          <div className="flex justify-center items-center h-full text-muted-foreground">
+            {t("no-records")}
+          </div>
+        ) : (
+          <div className="p-4 space-y-2">
+            {records.map((record) => (
+              <div
+                key={record.id}
+                className="p-3 border rounded-md hover:bg-accent flex justify-between items-center"
+              >
+                <div>
+                  {/* Display first title property as main title */}
+                  {Object.entries(record.properties).map(([key, value]) => {
+                    if (value.title && value.title.length > 0) {
+                      return (
+                        <h3 key={key} className="font-medium">
+                          {value.title.map((t: any) => t.plain_text).join("")}
+                        </h3>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(record.lastEditedTime).toLocaleString()}
+                  </p>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEditRecord(record)}
+                    disabled={isLoading || isApiProcessing}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteRecord(record)}
+                    disabled={isLoading || isApiProcessing}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
       
-      {/* Create/Edit Record Dialog */}
+      {/* Keep the Create/Edit Record Dialog */}
       <Dialog open={isCreating || isEditing} onOpenChange={(open) => {
         if (!open) {
           setIsCreating(false);
