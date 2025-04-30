@@ -42,6 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/llm/openai", async (req: Request, res: Response) => {
     try {
       const apiKey = req.headers["x-api-key"];
+      const model = req.body.model || "gpt-4o"; // Default to gpt-4o if no model specified
       
       if (!apiKey) {
         return res.status(400).json({ message: "Missing API key" });
@@ -50,14 +51,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await axios.post(
         "https://api.openai.com/v1/chat/completions",
         {
-          model: "gpt-4o", // newest model as of May 2024
+          model: model, // gpt-4o is the newest model as of May 2024
           messages: req.body.messages,
           temperature: 0.7,
+          max_tokens: 2000,
         },
         {
           headers: {
             "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v1" // Include this for using the latest API features
           }
         }
       );
@@ -78,6 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/llm/anthropic", async (req: Request, res: Response) => {
     try {
       const apiKey = req.headers["x-api-key"];
+      const model = req.body.model || "claude-3-5-sonnet-20240620"; // Default model Claude 3.5 Sonnet
       
       if (!apiKey) {
         return res.status(400).json({ message: "Missing API key" });
@@ -86,14 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await axios.post(
         "https://api.anthropic.com/v1/messages",
         {
-          model: "claude-3-7-sonnet-20250219", // newest model as of Feb 2025
-          max_tokens: 1000,
-          messages: req.body.messages
+          model: model,
+          max_tokens: 4096,
+          messages: req.body.messages,
+          temperature: 0.7
         },
         {
           headers: {
             "x-api-key": apiKey as string,
-            "anthropic-version": "2023-06-01",
+            "anthropic-version": "2023-06-01", // Current stable API version
             "Content-Type": "application/json"
           }
         }
@@ -115,6 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/llm/gemini", async (req: Request, res: Response) => {
     try {
       const apiKey = req.headers["x-api-key"];
+      const model = req.body.model || "gemini-1.5-flash-latest"; // Default to Gemini 1.5 Flash
       
       if (!apiKey) {
         return res.status(400).json({ message: "Missing API key" });
@@ -126,14 +132,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parts: [{ text: msg.content }]
       }));
       
+      // The API endpoint varies based on model
+      const baseEndpoint = "https://generativelanguage.googleapis.com/v1";
+      const modelPath = model.includes("gemini-1.5") ? "gemini-1.5" : "gemini-pro";
+      
       const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+        `${baseEndpoint}/models/${model}:generateContent?key=${apiKey}`,
         {
           contents,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 1000
-          }
+            maxOutputTokens: 2048,
+            topP: 0.95
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         },
         {
           headers: {
@@ -159,6 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/llm/openrouter", async (req: Request, res: Response) => {
     try {
       const apiKey = req.headers["x-api-key"];
+      const model = req.body.model || ""; // User can specify any model offered by OpenRouter
       
       if (!apiKey) {
         return res.status(400).json({ message: "Missing API key" });
@@ -167,13 +189,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await axios.post(
         "https://openrouter.ai/api/v1/chat/completions",
         {
-          model: "openai/gpt-4o",
-          messages: req.body.messages
+          model: model || undefined, // If empty, OpenRouter will use its default routing
+          messages: req.body.messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          top_p: 0.95,
+          // Allow the user to route to their preferred model
+          route: "fallback" // Will use the default if the specified model is unavailable
         },
         {
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "HTTP-Referer": "https://oss-notion-ai.example",
+            "X-Title": "OSS Notion AI Alternative",
             "Content-Type": "application/json"
           }
         }

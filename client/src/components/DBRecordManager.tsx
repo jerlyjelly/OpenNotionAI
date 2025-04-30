@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NotionClient } from "@/lib/notion";
 
 type NotionRecord = {
   id: string;
