@@ -1,6 +1,12 @@
 import { createContext, useState, useContext, ReactNode } from "react";
 import { NotionClient, DatabaseStructure } from "@/lib/notion";
-import { createLLMClient, LLMInterface, LLMProvider, ChatMessage } from "@/lib/llm-providers";
+import { 
+  createLLMClient, 
+  LLMInterface, 
+  LLMProvider, 
+  ChatMessage,
+  defaultModels 
+} from "@/lib/llm-providers";
 import { useToast } from "@/hooks/use-toast";
 
 interface ApiContextType {
@@ -12,6 +18,8 @@ interface ApiContextType {
   setLlmProvider: (provider: LLMProvider) => void;
   llmApiKey: string;
   setLlmApiKey: (key: string) => void;
+  llmModel: string;
+  setLlmModel: (model: string) => void;
   isConnecting: boolean;
   isConnected: boolean;
   connect: () => Promise<void>;
@@ -33,6 +41,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   const [notionDbId, setNotionDbId] = useState("");
   const [llmProvider, setLlmProvider] = useState<LLMProvider>("openai");
   const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmModel, setLlmModel] = useState(defaultModels.openai);
   
   // Connection states
   const [isConnecting, setIsConnecting] = useState(false);
@@ -71,8 +80,8 @@ export function ApiProvider({ children }: { children: ReactNode }) {
       // Test connection by fetching database structure
       const structure = await newNotionClient.getDatabaseStructure();
       
-      // Create LLM client
-      const newLlmClient = createLLMClient(llmProvider, llmApiKey);
+      // Create LLM client with the selected model
+      const newLlmClient = createLLMClient(llmProvider, llmApiKey, llmModel);
       
       // Save clients and data
       setNotionClient(newNotionClient);
@@ -122,6 +131,20 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Handle provider change to update default model
+  const handleProviderChange = (newProvider: LLMProvider) => {
+    setLlmProvider(newProvider);
+    setLlmModel(defaultModels[newProvider]);
+  };
+  
+  // Update model for the current LLM client
+  const updateLlmModel = (model: string) => {
+    setLlmModel(model);
+    if (llmClient) {
+      llmClient.setModel(model);
+    }
+  };
+
   return (
     <ApiContext.Provider
       value={{
@@ -130,9 +153,11 @@ export function ApiProvider({ children }: { children: ReactNode }) {
         notionDbId,
         setNotionDbId,
         llmProvider,
-        setLlmProvider,
+        setLlmProvider: handleProviderChange,
         llmApiKey,
         setLlmApiKey,
+        llmModel,
+        setLlmModel: updateLlmModel,
         isConnecting,
         isConnected,
         connect,

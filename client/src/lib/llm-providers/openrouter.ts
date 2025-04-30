@@ -2,9 +2,11 @@ import { LLMInterface, ChatMessage } from "./index";
 
 export default class OpenRouterProvider implements LLMInterface {
   private apiKey: string;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
+    this.model = model || ""; // Default to empty - OpenRouter will choose the best model
   }
 
   async chat(messages: ChatMessage[]): Promise<string> {
@@ -15,7 +17,10 @@ export default class OpenRouterProvider implements LLMInterface {
           "Content-Type": "application/json",
           "X-API-KEY": this.apiKey,
         },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ 
+          messages,
+          model: this.model 
+        }),
       });
 
       if (!response.ok) {
@@ -29,5 +34,10 @@ export default class OpenRouterProvider implements LLMInterface {
       console.error("Error calling OpenRouter:", error);
       throw error;
     }
+  }
+  
+  // Set a new model
+  setModel(model: string): void {
+    this.model = model || "";
   }
 }

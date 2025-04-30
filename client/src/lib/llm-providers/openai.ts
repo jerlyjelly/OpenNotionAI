@@ -2,9 +2,11 @@ import { LLMInterface, ChatMessage } from "./index";
 
 export default class OpenAIProvider implements LLMInterface {
   private apiKey: string;
+  private model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
+    this.model = model || "gpt-4o"; // Default to gpt-4o if no model is specified
   }
 
   async chat(messages: ChatMessage[]): Promise<string> {
@@ -15,7 +17,10 @@ export default class OpenAIProvider implements LLMInterface {
           "Content-Type": "application/json",
           "X-API-KEY": this.apiKey,
         },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ 
+          messages,
+          model: this.model
+        }),
       });
 
       if (!response.ok) {
@@ -30,6 +35,11 @@ export default class OpenAIProvider implements LLMInterface {
       throw error;
     }
   }
+  
+  // Set a new model
+  setModel(model: string): void {
+    this.model = model || "gpt-4o";
+  }
 }
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
