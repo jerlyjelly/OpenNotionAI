@@ -37,7 +37,7 @@ export const availableModels = {
     { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" }
   ],
   gemini: [
-    { value: "gemini-1.5-flash-latest", label: "Gemini 1.5 Flash" },
+    { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash" },
     { value: "gemini-1.5-pro-latest", label: "Gemini 1.5 Pro" },
     { value: "gemini-pro", label: "Gemini Pro" }
   ],
