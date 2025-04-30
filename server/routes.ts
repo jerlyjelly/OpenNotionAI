@@ -60,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
-            "OpenAI-Beta": "assistants=v1" // Include this for using the latest API features
+            // "OpenAI-Beta": "assistants=v1" // Removed: Typically for Assistants API
           }
         }
       );
@@ -120,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/llm/gemini", async (req: Request, res: Response) => {
     try {
       const apiKey = req.headers["x-api-key"];
-      const model = req.body.model || "gemini-1.5-flash-latest"; // Default to Gemini 1.5 Flash
+      const model = req.body.model || "gemini-2.5-flash-preview-04-17"; // Default to Gemini 2.5 Flash Preview
       
       if (!apiKey) {
         return res.status(400).json({ message: "Missing API key" });
@@ -132,9 +132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parts: [{ text: msg.content }]
       }));
       
-      // The API endpoint varies based on model
-      const baseEndpoint = "https://generativelanguage.googleapis.com/v1";
-      const modelPath = model.includes("gemini-1.5") ? "gemini-1.5" : "gemini-pro";
+      // Use v1beta for preview models
+      const baseEndpoint = "https://generativelanguage.googleapis.com/v1beta";
       
       const response = await axios.post(
         `${baseEndpoint}/models/${model}:generateContent?key=${apiKey}`,

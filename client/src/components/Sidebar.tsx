@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
-import { LLMProvider } from "@/lib/llm-providers";
+import { LLMProvider, availableModels } from "@/lib/llm-providers";
 import { DBStructure } from "./DBStructure";
 
 export function Sidebar() {
@@ -16,6 +16,7 @@ export function Sidebar() {
     notionDbId, setNotionDbId,
     llmProvider, setLlmProvider,
     llmApiKey, setLlmApiKey,
+    llmModel, setLlmModel,
     connect, isConnecting, isConnected,
     dbStructure
   } = useApiContext();
@@ -91,6 +92,23 @@ export function Sidebar() {
                 <SelectItem value="anthropic">Anthropic</SelectItem>
                 <SelectItem value="gemini">Gemini</SelectItem>
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* LLM Model Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="llm-model">{t("llm-model")}</Label>
+            <Select value={llmModel} onValueChange={(value) => setLlmModel(value)}>
+              <SelectTrigger id="llm-model">
+                <SelectValue placeholder={t("select-llm-model")} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableModels[llmProvider].map((model) => (
+                  <SelectItem key={model.value} value={model.value}>
+                    {model.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

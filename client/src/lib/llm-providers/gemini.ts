@@ -6,7 +6,7 @@ export default class GeminiProvider implements LLMInterface {
 
   constructor(apiKey: string, model?: string) {
     this.apiKey = apiKey;
-    this.model = model || "gemini-1.5-flash-latest"; // Default to Gemini 1.5 Flash
+    this.model = model || "gemini-2.5-flash-preview-04-17"; // Default to Gemini 2.5 Flash Preview
   }
 
   async chat(messages: ChatMessage[]): Promise<string> {
@@ -38,6 +38,6 @@ export default class GeminiProvider implements LLMInterface {
   
   // Set a new model
   setModel(model: string): void {
-    this.model = model || "gemini-1.5-flash-latest";
+    this.model = model || "gemini-2.5-flash-preview-04-17";
   }
 }

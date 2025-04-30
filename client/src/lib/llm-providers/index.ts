@@ -19,7 +19,7 @@ export interface LLMInterface {
 export const defaultModels = {
   openai: "gpt-4o",
   anthropic: "claude-3-5-sonnet-20240620",
-  gemini: "gemini-1.5-flash-latest",
+  gemini: "gemini-2.5-flash-preview-04-17",
   openrouter: ""
 }
 
