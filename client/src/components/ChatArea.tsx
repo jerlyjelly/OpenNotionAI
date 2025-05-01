@@ -52,7 +52,7 @@ export function ChatArea() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [activeTab, setActiveTab] = useState<string>("chat");
-  const [showDbStructure, setShowDbStructure] = useState<boolean>(true); // State to toggle DB structure visibility
+  const [showDbStructure, setShowDbStructure] = useState<boolean>(false); // State to toggle DB structure visibility - Default to hidden
   // Removed pendingAction state
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
