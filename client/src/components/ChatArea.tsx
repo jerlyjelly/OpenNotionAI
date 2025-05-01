@@ -287,7 +287,10 @@ export function ChatArea() {
               onClick={() => setShowDbStructure(!showDbStructure)}
               className="flex items-center space-x-1"
             >
-              <span className="text-sm font-medium">{t("database-structure")}</span>
+              {/* Use dbStructure.title if available, fallback to translation. Added truncate and title attribute for long names */}
+              <span className="text-sm font-medium truncate max-w-[200px]" title={dbStructure?.title || t("database-structure")}>
+                {dbStructure?.title || t("database-structure")}
+              </span>
               {showDbStructure ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
 
