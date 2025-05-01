@@ -52,8 +52,8 @@ export class NotionClient {
       name: value.name,
       type: value.type,
       description: value.description,
-      options: value.type === 'select' || value.type === 'multi_select' 
-        ? value[value.type].options 
+      options: value.type === 'select' || value.type === 'multi_select' || value.type === 'status'
+        ? value[value.type].options
         : undefined
     }));
 

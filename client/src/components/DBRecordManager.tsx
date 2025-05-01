@@ -176,9 +176,13 @@ export function DBRecordManager() {
           formattedProperties[key] = {
             select: { name: value }
           };
+        } else if (propType === "status") {
+          formattedProperties[key] = {
+            status: { name: value }
+          };
         } else if (propType === "multi_select") {
           formattedProperties[key] = {
-            multi_select: Array.isArray(value) 
+            multi_select: Array.isArray(value)
               ? value.map(name => ({ name }))
               : [{ name: value }]
           };
@@ -222,9 +226,13 @@ export function DBRecordManager() {
           formattedProperties[key] = {
             select: { name: value }
           };
+        } else if (propType === "status") {
+          formattedProperties[key] = {
+            status: { name: value }
+          };
         } else if (propType === "multi_select") {
           formattedProperties[key] = {
-            multi_select: Array.isArray(value) 
+            multi_select: Array.isArray(value)
               ? value.map(name => ({ name }))
               : [{ name: value }]
           };
@@ -309,6 +317,8 @@ export function DBRecordManager() {
                             displayValue = value.rich_text.map((t: any) => t.plain_text).join("");
                           } else if (value.select && value.select.name) {
                             displayValue = value.select.name;
+                          } else if (value.status && value.status.name) {
+                            displayValue = value.status.name;
                           } else if (value.checkbox !== undefined) {
                             displayValue = value.checkbox ? "Yes" : "No";
                           } else if (value.number !== undefined) {
@@ -570,6 +580,22 @@ export function DBRecordManager() {
                         placeholder={`Enter ${propName}`}
                       />
                     ) : propType === "select" && prop.options ? (
+                      <Select
+                        value={String(propValue)}
+                        onValueChange={(value) => handlePropertyChange(propId, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${propName}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {prop.options.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.name}>
+                              {opt.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : propType === "status" && prop.options ? (
                       <Select
                         value={String(propValue)}
                         onValueChange={(value) => handlePropertyChange(propId, value)}
