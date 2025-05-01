@@ -1,13 +1,17 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react"; // Removed useCallback
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
-import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database } from "lucide-react";
+// ChatMessage might not be needed if chatHistory is removed, but keep for now if Message uses it indirectly
+// import { ChatMessage } from "@/lib/llm-providers";
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database } from "lucide-react"; // Removed Check, X
 import { useToast } from "@/hooks/use-toast";
 import { DBRecordManager } from "./DBRecordManager";
+import { DBStructure } from "./DBStructure"; // Import DBStructure
+// Removed NotionClient and DatabaseProperty as they are no longer used for direct interaction
+import { DatabaseStructure as NotionDBStructure } from "@/lib/notion";
 import {
   Popover,
   PopoverContent,
@@ -21,23 +25,39 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
+  // Removed fields related to confirmation UI
 }
+
+// Removed types related to client-side action handling and confirmation
+// interface NotionActionPayload { ... }
+// interface NotionUpdatePayload { ... }
+// interface NotionAction { ... }
+// interface PendingAction { ... }
+
 
 export function ChatArea() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { 
-    isConnected, 
+  const {
+    isConnected,
     dbStructure,
-    chatWithLLM,
-    isProcessing
+    isProcessing, // Keep isProcessing for loading states
+    notionApiKey,
+    notionDbId,   // Corrected name
+    llmApiKey,    // Add llmApiKey
+    llmProvider,  // Add llmProvider
+    // Removed chatWithLLM and notionClient
   } = useApiContext();
-  
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [activeTab, setActiveTab] = useState<string>("chat");
+  // Removed pendingAction state
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
+  // Keep isProcessing state, but rename the setter if needed (or keep if context provides it)
+  const [isLoading, setIsLoading] = useState(false); // Local loading state for fetch
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -62,10 +82,24 @@ export function ChatArea() {
     }
   }, [isConnected, dbStructure, messages.length, t]);
 
+  // Removed findTitlePropertyName, handleConfirmAction, handleCancelAction
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isProcessing) return;
+    // Use local isLoading state, remove pendingAction check
+    // Use correct variable name notionDbId
+    // Add checks for llmApiKey and llmProvider
+    if (!input.trim() || isLoading || !notionApiKey || !notionDbId || !llmApiKey || !llmProvider) {
+        toast({ // Inform user if required config is missing
+            title: "Missing Configuration",
+            description: "Please ensure Notion API Key, Database ID, LLM Provider, and LLM API Key are set in Settings.",
+            variant: "destructive",
+        });
+        return;
+    }
 
+    const userMessageContent = input; // Store content before clearing
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -76,47 +110,72 @@ export function ChatArea() {
     // Add user message to chat
     setMessages(prev => [...prev, userMessage]);
     setInput("");
+    setIsLoading(true); // Start loading
 
-    // Create chat history for LLM
-    const chatHistory: ChatMessage[] = [
-      { 
-        role: "system", 
-        content: `You are an AI assistant that helps users interact with their Notion database. 
-        The database has the following structure: ${JSON.stringify(dbStructure)}.
-        Be helpful, concise, and accurate. If you don't know something, say so.`
-      },
-      ...messages.map(msg => ({ 
-        role: msg.role as "user" | "assistant", 
-        content: msg.content 
-      })),
-      { role: "user", content: input }
-    ];
+    // Removed chat history creation and LLM call logic
 
     try {
-      // Get response from LLM
-      const response = await chatWithLLM(chatHistory);
-      
-      // Add AI response to chat
+      // Call the backend endpoint
+      const response = await fetch('/api/chat-action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userMessage: userMessageContent, // Correct field name: userMessage
+          notionApiKey: notionApiKey,
+          databaseId: notionDbId,
+          llmApiKey: llmApiKey,       // Add llmApiKey
+          llmProvider: llmProvider,   // Add llmProvider
+          // Optionally send previous messages if backend needs context,
+          // but for now, just send the current message as per simplified goal.
+          // chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok) {
+        // Handle HTTP errors (e.g., 4xx, 5xx)
+        const errorData = await response.json().catch(() => ({ message: response.statusText })); // Try to parse error JSON
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Add assistant message from backend response
       setMessages(prev => [
-        ...prev, 
+        ...prev,
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: response,
+          content: result.message || t("empty-response"), // Use message from backend or a fallback
           timestamp: new Date().toISOString()
         }
       ]);
+
+      // If backend indicates success, maybe show a toast? (Optional)
+      if (result.success) {
+         // toast({ title: t("action-successful") }); // Example toast
+      }
+
+
     } catch (error) {
-      console.error("Error getting AI response:", error);
+      console.error("Error calling backend chat action:", error);
+      toast({
+        title: t("error-occurred"),
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
       setMessages(prev => [
-        ...prev, 
+        ...prev,
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: t("error-message"),
+          content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`, // Show specific error
           timestamp: new Date().toISOString()
         }
       ]);
+    } finally {
+       setIsLoading(false); // Stop loading regardless of outcome
     }
   };
 
@@ -247,7 +306,14 @@ export function ChatArea() {
           </Tooltip>
         </div>
 
-        <ScrollArea className="flex-1 px-4 pb-4 pt-10">
+        {/* Render DBStructure here */}
+        {dbStructure && (
+          <div className="px-4 py-2 border-b">
+            <DBStructure dbStructure={dbStructure} />
+          </div>
+        )}
+
+        <ScrollArea className="flex-1 px-4 pb-4 pt-2"> {/* Adjusted pt */}
           <div className="space-y-4">
             {messages.map((message) => (
               <div
@@ -261,7 +327,9 @@ export function ChatArea() {
                       : "bg-secondary text-secondary-foreground"
                   }`}
                 >
+                  {/* Confirmation UI Rendering Logic is fully removed */}
                   <p className="whitespace-pre-wrap">{message.content}</p>
+                  {/* Always show timestamp if available */}
                   {message.timestamp && (
                     <p className="text-xs opacity-70 mt-1">
                       {new Date(message.timestamp).toLocaleTimeString()}
@@ -280,17 +348,18 @@ export function ChatArea() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t("chat-placeholder")}
-              disabled={isProcessing}
+              disabled={isLoading} // Use local isLoading state
               className="flex-1"
             />
-            <Button type="submit" disabled={isProcessing || !input.trim()}>
-              {isProcessing ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+            <Button type="submit" disabled={isLoading || !input.trim()}> {/* Use local isLoading state */}
+              {isLoading ? ( // Use local isLoading state
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-5 w-5" />
+                <Send className="h-4 w-4" />
               )}
             </Button>
           </form>
+          {/* Removed pending action indicator */}
         </div>
       </TabsContent>
 

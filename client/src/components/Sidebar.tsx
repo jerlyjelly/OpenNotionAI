@@ -7,7 +7,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 import { LLMProvider, availableModels } from "@/lib/llm-providers";
-import { DBStructure } from "./DBStructure";
+
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -158,8 +158,7 @@ export function Sidebar() {
         </div>
       </div>
       
-      {/* Database Structure */}
-      {dbStructure && <DBStructure dbStructure={dbStructure} />}
+      {/* Database Structure removed from here */}
     </div>
   );
 }
