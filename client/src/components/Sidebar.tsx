@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Import useEffect
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Eye, EyeOff } from "lucide-react";
-import { useTranslation } from "@/i18n";
+import { Loader2, Eye, EyeOff, PanelLeftClose, PanelRightOpen } from "lucide-react"; // Import new icons
+import { useTranslation } from "@/i18n"; // Keep useTranslation
 import { useApiContext } from "@/context/ApiContext";
 import { LLMProvider, availableModels } from "@/lib/llm-providers";
 
@@ -24,10 +24,20 @@ export function Sidebar() {
   const [showNotionApiKey, setShowNotionApiKey] = useState(false);
   const [showNotionDbId, setShowNotionDbId] = useState(false);
   const [showLlmApiKey, setShowLlmApiKey] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false); // State for collapse/expand
+
+  // Effect to collapse sidebar on successful connection
+  useEffect(() => {
+    if (isConnected) {
+      setIsCollapsed(true);
+    }
+  }, [isConnected]);
 
   return (
-    <div className="w-80 border-r p-4 flex flex-col h-full">
-      <div className="space-y-4">
+    <div className={`border-r flex flex-col h-full transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16' : 'w-80'}`}>
+      {/* Main content area - conditionally rendered based on collapsed state */}
+      <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isCollapsed ? 'hidden' : 'block'}`}>
+        {/* Settings Title */}
         <h2 className="text-lg font-medium">{t("settings")}</h2>
         
         {/* API Keys Section */}
@@ -157,8 +167,18 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
-      
-      {/* Database Structure removed from here */}
+
+      {/* Toggle Button - always visible at the bottom */}
+      <div className={`mt-auto p-4 ${isCollapsed ? 'flex justify-center' : ''}`}> {/* Removed border-t */}
+        <Button
+          variant="ghost"
+          size={isCollapsed ? "icon" : "default"}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={isCollapsed ? "" : "flex items-center justify-center"} // Removed w-full
+        >
+          {isCollapsed ? <PanelRightOpen className="h-7 w-7" /> : <PanelLeftClose className="h-7 w-7" />} {/* Removed text and mr-2 */}
+        </Button>
+      </div>
     </div>
   );
 }
