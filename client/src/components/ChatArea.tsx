@@ -6,7 +6,7 @@ import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 // ChatMessage might not be needed if chatHistory is removed, but keep for now if Message uses it indirectly
 // import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database } from "lucide-react"; // Removed Check, X
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp
 import { useToast } from "@/hooks/use-toast";
 import { DBRecordManager } from "./DBRecordManager";
 import { DBStructure } from "./DBStructure"; // Import DBStructure
@@ -52,6 +52,7 @@ export function ChatArea() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [activeTab, setActiveTab] = useState<string>("chat");
+  const [showDbStructure, setShowDbStructure] = useState<boolean>(true); // State to toggle DB structure visibility
   // Removed pendingAction state
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -277,15 +278,29 @@ export function ChatArea() {
 
         {/* TabsContent for chat now inside Tabs */}
         <TabsContent value="chat" className="flex-1 flex flex-col relative mt-0 p-0 overflow-hidden">
-          <div className="absolute top-2 right-2 z-10 flex space-x-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleClearChat}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("clear-chat")}</TooltipContent>
-          </Tooltip>
+          {/* Flex container for DB structure toggle and icons */}
+          <div className="flex items-center justify-between px-4 py-2">
+            {/* Button to toggle DB structure visibility */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDbStructure(!showDbStructure)}
+              className="flex items-center space-x-1"
+            >
+              <span className="text-sm font-medium">{t("database-structure")}</span>
+              {showDbStructure ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+
+            {/* Icons */}
+            <div className="flex space-x-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={handleClearChat}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("clear-chat")}</TooltipContent>
+            </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -305,17 +320,24 @@ export function ChatArea() {
             <TooltipContent>{t("export-conversation")}</TooltipContent>
           </Tooltip>
         </div>
+      </div>
 
-        {/* Render DBStructure here */}
-        {dbStructure && (
-          <div className="px-4 py-2 border-b">
+      {/* Render DBStructure with animation */}
+      {dbStructure && (
+        <div
+          className={`overflow-hidden transition-max-height duration-500 ease-in-out ${
+            showDbStructure ? "max-h-screen" : "max-h-0"
+          }`}
+        >
+          <div className="px-4">
             <DBStructure dbStructure={dbStructure} />
           </div>
-        )}
+        </div>
+      )}
 
-        <ScrollArea className="flex-1 px-4 pb-4 pt-2"> {/* Adjusted pt */}
-          <div className="space-y-4">
-            {messages.map((message) => (
+      <ScrollArea className="flex-1 px-4 pb-4 pt-2"> {/* Adjusted pt */}
+        <div className="space-y-4">
+          {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}

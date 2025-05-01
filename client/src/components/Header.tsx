@@ -11,7 +11,7 @@ export function Header() {
   const { t } = useTranslation();
 
   return (
-    <header className="border-b h-16 flex items-center justify-between px-4">
+    <header className="h-16 flex items-center justify-between px-4">
       <div className="flex items-center space-x-2">
         <Box className="h-8 w-8" />
         <h1 className="text-lg font-semibold">OSS Notion AI</h1>

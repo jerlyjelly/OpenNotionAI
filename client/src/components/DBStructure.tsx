@@ -13,7 +13,7 @@ export function DBStructure({ dbStructure }: DBStructureProps) {
   if (!dbStructure) return null;
 
   return (
-    <div className="mt-6 border-t pt-4 flex-1 flex flex-col overflow-hidden">
+    <div className="mt-4 flex-1 flex flex-col overflow-hidden">
       <ScrollArea className="flex-1">
         <div className="border rounded-md overflow-hidden">
           {dbStructure.properties.map((prop) => (
