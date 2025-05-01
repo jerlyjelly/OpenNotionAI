@@ -389,7 +389,7 @@ export function ChatArea() {
       </TabsContent>
 
         {/* TabsContent for database now inside Tabs */}
-        <TabsContent value="database" className="flex-1 p-4 mt-0 overflow-hidden">
+        <TabsContent value="database" className="flex-10 p-4 mt-0 overflow-hidden">
           <DBRecordManager />
         </TabsContent>
       </Tabs> {/* Tabs component now correctly closes here */}
