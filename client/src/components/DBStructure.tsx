@@ -29,7 +29,7 @@ export function DBStructure({ dbStructure }: DBStructureProps) {
                       <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
                         {option.name}
                       </span>
-                      {index < prop.options!.length - 1 && <span className="text-xs text-muted-foreground">,</span>}
+                      
                     </React.Fragment>
                   ))
                 ) : (
