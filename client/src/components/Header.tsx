@@ -3,9 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/i18n";
-import { Sun, Moon, Box } from "lucide-react";
+import { Sun, Moon, Box, PanelLeftClose, PanelRightOpen } from "lucide-react";
 
-export function Header() {
+export function Header({ 
+  isCollapsed, 
+  onToggle 
+}: { 
+  isCollapsed: boolean; 
+  onToggle: () => void 
+}) {
   const { setLanguage, language } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { t } = useTranslation();
@@ -13,8 +19,25 @@ export function Header() {
   return (
     <header className="h-16 flex items-center justify-between px-4">
       <div className="flex items-center space-x-2">
-        <Box className="h-8 w-8" />
-        <h1 className="text-lg font-semibold">OSS Notion AI</h1>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onToggle}
+          className="flex-shrink-0"
+        >
+          {isCollapsed ? (
+            <PanelRightOpen className="h-7 w-7" />
+          ) : (
+            <PanelLeftClose className="h-7 w-7" />
+          )}
+        </Button>
+        
+        {!isCollapsed && (
+          <>
+            <Box className="h-8 w-8" />
+            <h1 className="text-lg font-semibold">OSS Notion AI</h1>
+          </>
+        )}
       </div>
       
       <div className="flex items-center space-x-2">

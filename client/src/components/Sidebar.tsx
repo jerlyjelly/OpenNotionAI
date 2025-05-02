@@ -9,7 +9,7 @@ import { useApiContext } from "@/context/ApiContext";
 import { LLMProvider, availableModels } from "@/lib/llm-providers";
 
 
-export function Sidebar() {
+export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
   const { t } = useTranslation();
   const { 
     notionApiKey, setNotionApiKey,
@@ -24,21 +24,13 @@ export function Sidebar() {
   const [showNotionApiKey, setShowNotionApiKey] = useState(false);
   const [showNotionDbId, setShowNotionDbId] = useState(false);
   const [showLlmApiKey, setShowLlmApiKey] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false); // State for collapse/expand
-
-  // Effect to collapse sidebar on successful connection
-  useEffect(() => {
-    if (isConnected) {
-      setIsCollapsed(true);
-    }
-  }, [isConnected]);
 
   return (
     <div className={`border-r flex flex-col h-full transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16' : 'w-80'}`}>
       {/* Main content area - conditionally rendered based on collapsed state */}
       <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isCollapsed ? 'hidden' : 'block'}`}>
         {/* Settings Title */}
-        <h2 className="text-lg font-medium">{t("settings")}</h2>
+        {/* <h2 className="text-lg font-medium">{t("settings")}</h2> */}
         
         {/* API Keys Section */}
         <div className="space-y-4">
@@ -168,17 +160,6 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Toggle Button - always visible at the bottom */}
-      <div className={`mt-auto p-4 ${isCollapsed ? 'flex justify-center' : ''}`}> {/* Removed border-t */}
-        <Button
-          variant="ghost"
-          size={isCollapsed ? "icon" : "default"}
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={isCollapsed ? "" : "flex items-center justify-center"} // Removed w-full
-        >
-          {isCollapsed ? <PanelRightOpen className="h-7 w-7" /> : <PanelLeftClose className="h-7 w-7" />} {/* Removed text and mr-2 */}
-        </Button>
-      </div>
     </div>
   );
 }
