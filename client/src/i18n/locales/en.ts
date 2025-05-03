@@ -58,5 +58,7 @@ export const en = {
   "cancel": "Cancel",
   "create": "Create",
   "update": "Update",
-  "confirm-delete": "Are you sure you want to delete this record?"
+  "confirm-delete": "Are you sure you want to delete this record?",
+  "refresh-database": "Refresh Database Structure & Records",
+  "error-loading-records": "Error loading records"
 };

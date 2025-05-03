@@ -1,7 +1,7 @@
-import { createContext, useState, useContext, ReactNode } from "react";
+import { createContext, useState, useContext, ReactNode, useCallback } from "react";
 import { NotionClient, DatabaseStructure } from "@/lib/notion";
-import { 
-  createLLMClient, 
+import {
+  createLLMClient,
   LLMInterface, 
   LLMProvider, 
   ChatMessage,
@@ -29,7 +29,21 @@ interface ApiContextType {
   notionClient: NotionClient | null;
   reconnect: () => Promise<void>;
   connectionError: string | null;
+  isRefreshing: boolean; // Renamed from isDbLoading
+  refreshData: () => Promise<void>; // Renamed from refreshDbStructure
+  records: NotionRecord[];
+  isRecordsLoading: boolean;
+  recordsError: string | null;
 }
+
+// Define NotionRecord type here or import if moved
+type NotionRecord = {
+  id: string;
+  properties: Record<string, any>;
+  url: string;
+  createdTime: string;
+  lastEditedTime: string;
+};
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
 
@@ -55,6 +69,33 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   
   // Database structure
   const [dbStructure, setDbStructure] = useState<DatabaseStructure | null>(null);
+  
+  // Database records
+  const [records, setRecords] = useState<NotionRecord[]>([]);
+  const [isRecordsLoading, setIsRecordsLoading] = useState(false);
+  const [recordsError, setRecordsError] = useState<string | null>(null);
+
+  // Combined refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false); // Renamed from isDbLoading
+
+  // Internal function to fetch records
+  const fetchRecords = useCallback(async (client: NotionClient) => {
+    if (!client) return;
+    setIsRecordsLoading(true);
+    setRecordsError(null);
+    try {
+      const results = await client.queryDatabase();
+      setRecords(results);
+    } catch (error) {
+      console.error("Error fetching records:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch records";
+      setRecordsError(errorMessage);
+      // Optionally show toast for record fetch errors
+      // toast({ title: "Record Fetch Failed", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsRecordsLoading(false);
+    }
+  }, []); // Empty dependency array as it uses the passed client
 
   // Connect to Notion and LLM
   const connect = async () => {
@@ -85,10 +126,16 @@ export function ApiProvider({ children }: { children: ReactNode }) {
       
       // Save clients and data
       setNotionClient(newNotionClient);
+      // Save clients and structure
+      setNotionClient(newNotionClient);
       setLlmClient(newLlmClient);
       setDbStructure(structure);
-      setIsConnected(true);
       
+      // Fetch initial records
+      await fetchRecords(newNotionClient); 
+      
+      setIsConnected(true); // Set connected only after structure AND records are attempted
+
       toast({
         title: "Connected Successfully",
         description: "You can now chat with your Notion database.",
@@ -107,11 +154,48 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Refresh database structure and records manually
+  const refreshData = async () => {
+    if (!notionClient || !isConnected || isRefreshing) return;
+
+    setIsRefreshing(true);
+    setRecordsError(null); // Clear previous errors
+
+    try {
+      // Fetch structure first
+      const structure = await notionClient.getDatabaseStructure();
+      setDbStructure(structure);
+      
+      // Then fetch records
+      await fetchRecords(notionClient); 
+
+      toast({
+        title: "Database Refreshed",
+        description: "Database structure and records have been updated.",
+      });
+    } catch (error) {
+      // Error handling for structure fetch (record fetch errors handled in fetchRecords)
+      console.error("DB structure refresh error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh database structure";
+      // Decide if this error should be shown differently or combined with recordsError
+      setRecordsError(errorMessage); // Temporarily using recordsError for structure errors too
+      toast({
+        title: "Refresh Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Reconnect with current settings
   const reconnect = async () => {
     if (isConnected) {
       setIsConnected(false);
       setDbStructure(null);
+      setRecords([]); // Clear records on disconnect
+      setRecordsError(null);
     }
     return connect();
   };
@@ -166,7 +250,12 @@ export function ApiProvider({ children }: { children: ReactNode }) {
         chatWithLLM,
         isProcessing,
         notionClient,
-        connectionError
+        connectionError,
+        isRefreshing, // Renamed
+        refreshData, // Renamed
+        records,
+        isRecordsLoading,
+        recordsError
       }}
     >
       {children}
