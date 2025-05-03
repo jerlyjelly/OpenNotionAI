@@ -74,13 +74,13 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
         Notion Database Schema:
         ${JSON.stringify(dbSchema, null, 2)}
 
-        Based on the user request, current time, and database schema, determine the user's intent (CREATE or UPDATE) and extract the necessary properties to fulfill the request.
+        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, or DELETE) and extract the necessary properties to fulfill the request.
 
-        If the intent is UPDATE, also identify the unique text identifier (likely the value of the primary 'title' property) for the record to be updated.
+        If the intent is UPDATE or DELETE, also identify the unique text identifier (likely the value of the primary 'title' property) for the record to be updated or deleted.
 
         Respond ONLY with a JSON object in the following format:
         {
-          "intent": "CREATE" | "UPDATE",
+          "intent": "CREATE" | "UPDATE" | "DELETE",
           "identifier": "Unique text identifier for the record to update (null if intent is CREATE)",
           "properties": {
             "PropertyName1": { "type": "value based on schema type", ... },
@@ -129,7 +129,7 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
       console.log("LLM Raw Response:", JSON.stringify(llmResponseJson, null, 2)); // Log the raw LLM response
       const { intent, identifier, properties: llmProperties } = llmResponseJson;
 
-      if (!intent || !['CREATE', 'UPDATE'].includes(intent) || !llmProperties) {
+      if (!intent || !['CREATE', 'UPDATE', 'DELETE'].includes(intent) || !llmProperties) {
         console.error("Invalid LLM response structure:", llmResponseJson);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Received invalid structure from LLM.', details: llmResponseJson }));
@@ -144,7 +144,46 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
 
       // --- 7. Execute Notion Action ---
       try {
-        if (intent === 'UPDATE') {
+        if (intent === 'DELETE') {
+          // Find the title property name from the schema
+          const titlePropertyName = Object.keys(dbSchema).find(key => dbSchema[key].type === 'title');
+          if (!titlePropertyName) {
+            throw new Error("Could not find a 'title' property in the database schema.");
+          }
+
+          // Query Notion to find the page ID
+          const queryResponse = await notion.databases.query({
+            database_id: databaseId,
+            filter: {
+              property: titlePropertyName,
+              title: {
+                equals: identifier,
+              },
+            },
+            page_size: 1, // We only need one match
+          });
+
+          if (queryResponse.results.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `No record found with identifier "${identifier}" in property "${titlePropertyName}".` }));
+            return;
+          }
+          if (queryResponse.results.length > 1) {
+            console.warn(`Multiple records found with identifier "${identifier}". Deleting the first one.`);
+          }
+
+          const pageId = queryResponse.results[0].id;
+
+          // Archive (delete) the page
+          await notion.pages.update({
+            page_id: pageId,
+            archived: true,
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: `Successfully deleted record: ${identifier}` }));
+
+        } else if (intent === 'UPDATE') {
           // Find the title property name from the schema
           const titlePropertyName = Object.keys(dbSchema).find(key => dbSchema[key].type === 'title');
           if (!titlePropertyName) {
