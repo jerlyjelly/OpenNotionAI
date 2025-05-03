@@ -1,6 +1,6 @@
 export const en = {
   // Onboarding
-  "welcome-to-oss": "Welcome to OSS Notion AI",
+  "welcome-to-oss": "Welcome to Open Notion AI",
   "intro-1": "This is an open-source alternative to Notion AI that allows you to interact with your Notion databases using various language models.",
   "intro-2": "With this tool, you can:",
   "feature-1": "Create and edit content in your Notion database",
@@ -28,7 +28,7 @@ export const en = {
   "db-structure": "Database Structure",
   
   // Chat Area
-  "welcome": "Welcome to OSS Notion AI",
+  "welcome": "Welcome to Open Notion AI",
   "start-description": "Enter your API keys in the sidebar to start chatting with your Notion database.",
   "keys-secure": "Your API keys are stored locally and never sent to our servers.",
   "chat-placeholder": "Type your message here...",

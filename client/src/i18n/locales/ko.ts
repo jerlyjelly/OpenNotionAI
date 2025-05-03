@@ -1,6 +1,6 @@
 export const ko = {
   // Onboarding
-  "welcome-to-oss": "OSS Notion AI에 오신 것을 환영합니다",
+  "welcome-to-oss": "Open Notion AI에 오신 것을 환영합니다",
   "intro-1": "이것은 다양한 언어 모델을 사용하여 Notion 데이터베이스와 상호 작용할 수 있는 Notion AI의 오픈 소스 대안입니다.",
   "intro-2": "이 도구를 사용하면 다음을 수행할 수 있습니다:",
   "feature-1": "Notion 데이터베이스에서 콘텐츠 생성 및 편집",
@@ -28,7 +28,7 @@ export const ko = {
   "db-structure": "데이터베이스 구조",
   
   // Chat Area
-  "welcome": "OSS Notion AI에 오신 것을 환영합니다",
+  "welcome": "Open Notion AI에 오신 것을 환영합니다",
   "start-description": "사이드바에 API 키를 입력하여 Notion 데이터베이스와 채팅을 시작하세요.",
   "keys-secure": "API 키는 로컬에 저장되며 서버로 전송되지 않습니다.",
   "chat-placeholder": "메시지를 입력하세요...",

@@ -35,7 +35,7 @@ export function Header({
         {!isCollapsed && (
           <>
             <Box className="h-8 w-8" />
-            <h1 className="text-lg font-semibold">OSS Notion AI</h1>
+            <h1 className="text-lg font-semibold">Open Notion AI</h1>
           </>
         )}
       </div>
