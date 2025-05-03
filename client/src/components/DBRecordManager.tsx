@@ -258,15 +258,17 @@ export function DBRecordManager() {
   return (
     <ScrollArea className="flex-1 flex flex-col h-full">
       <div className="w-full space-y-4">
-        <div className="flex items-center space-x-2">
-          <Search className="text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder={t("search-records")}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1"
-          />
-        </div>
+        {!isLoading && (
+          <div className="flex items-center space-x-2">
+            <Search className="text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={t("search-records")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
