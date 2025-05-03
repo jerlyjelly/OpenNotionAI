@@ -74,13 +74,15 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
         Notion Database Schema:
         ${JSON.stringify(dbSchema, null, 2)}
 
-        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, or DELETE) and extract the necessary properties to fulfill the request.
+        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, or APPEND) and extract the necessary properties to fulfill the request.
 
-        If the intent is UPDATE or DELETE, also identify the unique text identifier (likely the value of the primary 'title' property) for the record to be updated or deleted.
+        If the intent is UPDATE, DELETE, or APPEND, also identify the unique text identifier (likely the value of the primary 'title' property) for the record to be updated, deleted, or appended to.
+
+        For APPEND intent, the properties should contain a "content" field with a plain text string where each line represents a bulleted list item to be added.
 
         Respond ONLY with a JSON object in the following format:
         {
-          "intent": "CREATE" | "UPDATE" | "DELETE",
+          "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND",
           "identifier": "Unique text identifier for the record to update (null if intent is CREATE)",
           "properties": {
             "PropertyName1": { "type": "value based on schema type", ... },
@@ -129,7 +131,7 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
       console.log("LLM Raw Response:", JSON.stringify(llmResponseJson, null, 2)); // Log the raw LLM response
       const { intent, identifier, properties: llmProperties } = llmResponseJson;
 
-      if (!intent || !['CREATE', 'UPDATE', 'DELETE'].includes(intent) || !llmProperties) {
+      if (!intent || !['CREATE', 'UPDATE', 'DELETE', 'APPEND'].includes(intent) || !llmProperties) {
         console.error("Invalid LLM response structure:", llmResponseJson);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Received invalid structure from LLM.', details: llmResponseJson }));
@@ -182,6 +184,95 @@ const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) 
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, message: `Successfully deleted record: ${identifier}` }));
+
+        } else if (intent === 'APPEND') {
+          // Find the title property name from the schema
+          const titlePropertyName = Object.keys(dbSchema).find(key => dbSchema[key].type === 'title');
+          if (!titlePropertyName) {
+            throw new Error("Could not find a 'title' property in the database schema.");
+          }
+
+          // Query Notion to find the page ID
+          const queryResponse = await notion.databases.query({
+            database_id: databaseId,
+            filter: {
+              property: titlePropertyName,
+              title: {
+                equals: identifier,
+              },
+            },
+            page_size: 1, // We only need one match
+          });
+
+          if (queryResponse.results.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `No record found with identifier "${identifier}" in property "${titlePropertyName}".` }));
+            return;
+          }
+          if (queryResponse.results.length > 1) {
+            console.warn(`Multiple records found with identifier "${identifier}". Appending to the first one.`);
+          }
+
+          const pageId = queryResponse.results[0].id;
+          
+          // Create bulleted list items from the content
+          const contentItems = llmProperties.content || [];
+          const children = [];
+          
+          // Handle both array and string formats
+          if (Array.isArray(contentItems)) {
+            // Process array format (each item has rich_text)
+            for (const item of contentItems) {
+              if (item.type === 'bulleted_list_item' && item.bulleted_list_item?.rich_text?.[0]?.text?.content) {
+                children.push({
+                  object: "block",
+                  type: "bulleted_list_item",
+                  bulleted_list_item: {
+                    rich_text: [{
+                      type: "text",
+                      text: {
+                        content: item.bulleted_list_item.rich_text[0].text.content
+                      }
+                    }]
+                  }
+                });
+              }
+            }
+          } else if (typeof contentItems === 'string') {
+            // Process string format (split by newlines)
+            const contentLines = contentItems.split('\n');
+            for (const line of contentLines) {
+              if (line.trim() !== '') {
+                children.push({
+                  object: "block",
+                  type: "bulleted_list_item",
+                  bulleted_list_item: {
+                    rich_text: [{
+                      type: "text",
+                      text: {
+                        content: line.trim()
+                      }
+                    }]
+                  }
+                });
+              }
+            }
+          }
+
+          if (children.length === 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No content provided to append.' }));
+            return;
+          }
+
+          // Append content to the page
+          await notion.blocks.children.append({
+            block_id: pageId,
+            children: children
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: `Successfully appended ${children.length} items to record: ${identifier}` }));
 
         } else if (intent === 'UPDATE') {
           // Find the title property name from the schema
@@ -262,20 +353,21 @@ function chatActionPlugin() {
   };
 }
 
-export default defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    chatActionPlugin(), // Add our custom plugin here
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
-  ],
+export default defineConfig(async () => { // Make config function async
+  const cartographerPlugin =
+    process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
+      ? await import("@replit/vite-plugin-cartographer").then((m) =>
+          m.cartographer()
+        )
+      : null;
+
+  return { // Return the config object
+    plugins: [
+      react(),
+      runtimeErrorOverlay(),
+      chatActionPlugin(), // Add our custom plugin here
+      ...(cartographerPlugin ? [cartographerPlugin] : []), // Conditionally add resolved plugin
+    ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -320,4 +412,4 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
-});
+}}); // Close the async function and the return object
