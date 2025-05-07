@@ -6,7 +6,7 @@ import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 // ChatMessage might not be needed if chatHistory is removed, but keep for now if Message uses it indirectly
 // import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp, ExternalLink, ChevronRight } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp, ExternalLink, ChevronRight
 import { useToast } from "@/hooks/use-toast";
 import { DBRecordManager } from "./DBRecordManager";
 import { DBStructure } from "./DBStructure"; // Import DBStructure
@@ -19,12 +19,39 @@ import {
 } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
+
+// Helper function to extract title from Notion page properties
+const getNotionPageTitle = (properties: Record<string, any>): string => {
+  if (!properties) return "Untitled";
+  // Iterate over property names (e.g., "Name", "Task Name")
+  for (const propName in properties) {
+    if (Object.prototype.hasOwnProperty.call(properties, propName)) {
+      const property = properties[propName];
+      // Check if this property is of type 'title'
+      if (property && property.type === 'title' && property.title && property.title.length > 0) {
+        return property.title.map((textObj: any) => textObj.plain_text || textObj.text?.content || '').join('');
+      }
+    }
+  }
+  return "Untitled"; // Fallback if no title property found
+};
+
+// Define the structure for individual query result items
+interface NotionQueryResultItem {
+  id: string;
+  url: string;
+  created_time: string;
+  last_edited_time: string;
+  properties: Record<string, any>; // This will hold the raw properties from Notion
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
+  data?: NotionQueryResultItem[]; // To hold structured data like query results
   // Removed fields related to confirmation UI
 }
 
@@ -155,12 +182,17 @@ export function ChatArea() {
       setMessages(prev => {
         const newMessages = [...prev];
         const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
+        
+        const assistantMessageContent = result.message || t("empty-response");
+        const assistantMessageData = result.data; // Get data from result
+
         if (thinkingMsgIndex !== -1) {
           newMessages[thinkingMsgIndex] = {
             ...newMessages[thinkingMsgIndex],
-            id: Date.now().toString(),
-            content: result.message || t("empty-response"),
-            timestamp: new Date().toISOString()
+            id: Date.now().toString(), // Ensure new ID to avoid key issues if content is identical
+            content: assistantMessageContent,
+            timestamp: new Date().toISOString(),
+            data: assistantMessageData, // Add data here
           };
           return newMessages;
         }
@@ -170,8 +202,9 @@ export function ChatArea() {
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: result.message || t("empty-response"),
-            timestamp: new Date().toISOString()
+            content: assistantMessageContent,
+            timestamp: new Date().toISOString(),
+            data: assistantMessageData, // And here
           }
         ];
       });
@@ -380,25 +413,44 @@ export function ChatArea() {
           {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col mb-1 ${message.role === "user" ? "items-end" : "items-start"}`}
               >
+                {/* Chat bubble for text content */}
                 <div
-                  className={`px-4 py-2 rounded-lg max-w-[75%] flex items-center space-x-2 ${
+                  className={`px-4 py-2 rounded-lg max-w-[75%] flex items-center space-x-2 ${ 
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground"
                   }`}
                 >
-                  {/* Confirmation UI Rendering Logic is fully removed */}
                   {message.id === "thinking-message" && <Loader2 className="h-4 w-4 animate-spin" />}
                   <p className="whitespace-pre-wrap">{message.content}</p>
-                  {/* Always show timestamp if available */}
                   {message.timestamp && message.id !== "thinking-message" && (
-                    <p className="text-xs opacity-70 mt-1">
+                    <p className="text-xs opacity-70 mt-1 self-end">
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </p>
                   )}
                 </div>
+
+                {/* Render query results if available (OUTSIDE and BELOW the bubble) */}
+                {message.role === 'assistant' && message.data && message.data.length > 0 && (
+                  <div className="mt-2 self-start inline-grid grid-cols-auto max-w-[75%] gap-y-1">
+                    {message.data.map((item) => {
+                      const title = getNotionPageTitle(item.properties);
+                      return (
+                        <a 
+                          key={item.id} 
+                          href={item.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-start p-3 h-10 bg-transparent hover:bg-accent hover:text-accent-foreground rounded-md border border-input text-sm font-medium text-foreground transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group w-full truncate"
+                        >
+                          <span className="truncate">{title}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />
