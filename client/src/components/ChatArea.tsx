@@ -184,7 +184,15 @@ export function ChatArea() {
         const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
         
         const assistantMessageContent = result.message || t("empty-response");
-        const assistantMessageData = result.data; // Get data from result
+        // Get data from result and ensure it's an array for consistent rendering
+        let finalAssistantMessageData = null;
+        if (result.data) {
+          if (Array.isArray(result.data)) {
+            finalAssistantMessageData = result.data;
+          } else {
+            finalAssistantMessageData = [result.data]; // Wrap single object in an array
+          }
+        }
 
         if (thinkingMsgIndex !== -1) {
           newMessages[thinkingMsgIndex] = {
@@ -192,7 +200,7 @@ export function ChatArea() {
             id: Date.now().toString(), // Ensure new ID to avoid key issues if content is identical
             content: assistantMessageContent,
             timestamp: new Date().toISOString(),
-            data: assistantMessageData, // Add data here
+            data: finalAssistantMessageData, // Add data here
           };
           return newMessages;
         }
@@ -204,7 +212,7 @@ export function ChatArea() {
             role: "assistant",
             content: assistantMessageContent,
             timestamp: new Date().toISOString(),
-            data: assistantMessageData, // And here
+            data: finalAssistantMessageData, // And here
           }
         ];
       });
@@ -443,9 +451,10 @@ export function ChatArea() {
                           href={item.url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="flex items-center justify-start p-3 h-10 bg-transparent hover:bg-accent hover:text-accent-foreground rounded-md border border-input text-sm font-medium text-foreground transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group w-full truncate"
+                          className="flex items-center justify-between p-3 h-10 bg-transparent hover:bg-accent hover:text-accent-foreground rounded-md border border-input text-sm font-medium text-foreground transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group w-full"
                         >
-                          <span className="truncate">{title}</span>
+                          <span className="truncate flex-grow mr-2">{title}</span>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-accent-foreground flex-shrink-0" />
                         </a>
                       );
                     })}

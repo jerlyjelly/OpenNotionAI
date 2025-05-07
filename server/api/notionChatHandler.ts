@@ -243,15 +243,28 @@ async function findPageId(notion: NotionClient, databaseId: string, titlePropert
     return queryResponse.results[0].id;
 }
 
-async function handleCreateAction(notion: NotionClient, databaseId: string, llmProperties: LlmResponse['properties']): Promise<{ success: boolean, message: string, statusCode: number }> {
+async function handleCreateAction(
+    notion: NotionClient, 
+    databaseId: string, 
+    llmProperties: LlmResponse['properties']
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
     if (!llmProperties) { // Should be caught by validation, but good to be defensive
         throw { statusCode: 400, message: 'Properties missing for CREATE operation.' };
     }
-    await notion.pages.create({
+    const page = await notion.pages.create({
         parent: { database_id: databaseId },
-        properties: llmProperties, // This is now correctly typed as potentially undefined, but logic above ensures it's not.
+        properties: llmProperties, 
     });
-    return { success: true, message: 'Successfully created new record.', statusCode: 201 };
+    return { 
+        success: true, 
+        message: 'Successfully created new record.', 
+        statusCode: 201,
+        data: {
+            id: page.id,
+            url: (page as any).url, // Type assertion for url if not directly on type
+            properties: (page as any).properties // Type assertion for properties
+        }
+    };
 }
 
 async function handleDeleteAction(notion: NotionClient, databaseId: string, dbSchema: NotionDatabaseSchema, identifier: string): Promise<{ success: boolean, message: string, statusCode: number }> {
@@ -264,21 +277,42 @@ async function handleDeleteAction(notion: NotionClient, databaseId: string, dbSc
     return { success: true, message: `Successfully deleted record: ${identifier}`, statusCode: 200 };
 }
 
-async function handleUpdateAction(notion: NotionClient, databaseId: string, dbSchema: NotionDatabaseSchema, identifier: string, llmProperties: LlmResponse['properties']): Promise<{ success: boolean, message: string, statusCode: number }> {
-    if (!llmProperties) { // Should be caught by validation, but good to be defensive
+async function handleUpdateAction(
+    notion: NotionClient, 
+    databaseId: string, 
+    dbSchema: NotionDatabaseSchema, 
+    identifier: string, 
+    llmProperties: LlmResponse['properties']
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
+    if (!llmProperties) { 
         throw { statusCode: 400, message: 'Properties missing for UPDATE operation.' };
     }
     const titlePropertyName = findTitlePropertyName(dbSchema);
     const pageId = await findPageId(notion, databaseId, titlePropertyName, identifier);
-    await notion.pages.update({
+    const updatedPage = await notion.pages.update({
         page_id: pageId,
         properties: llmProperties,
     });
-    return { success: true, message: `Successfully updated record: ${identifier}`, statusCode: 200 };
+    return { 
+        success: true, 
+        message: `Successfully updated record: ${identifier}`,
+        statusCode: 200,
+        data: {
+            id: updatedPage.id,
+            url: (updatedPage as any).url,
+            properties: (updatedPage as any).properties
+        }
+    };
 }
 
-async function handleAppendAction(notion: NotionClient, databaseId: string, dbSchema: NotionDatabaseSchema, identifier: string, llmProperties: LlmResponse['properties']): Promise<{ success: boolean, message: string, statusCode: number }> {
-    if (!llmProperties || !llmProperties.content) { // Defensive check
+async function handleAppendAction(
+    notion: NotionClient, 
+    databaseId: string, 
+    dbSchema: NotionDatabaseSchema, 
+    identifier: string, 
+    llmProperties: LlmResponse['properties']
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
+    if (!llmProperties || !llmProperties.content) { 
         throw { statusCode: 400, message: 'Content property missing for APPEND operation.' };
     }
     const titlePropertyName = findTitlePropertyName(dbSchema);
@@ -326,16 +360,38 @@ async function handleAppendAction(notion: NotionClient, databaseId: string, dbSc
     }
 
     if (children.length === 0) {
-        // throw { statusCode: 400, message: 'No content provided to append.' };
-        // Allow appending nothing, effectively a no-op, could be valid if LLM determines no content
-        return { success: true, message: `No content provided or parsed to append to record: ${identifier}`, statusCode: 200 };
+        // Fetch page details even if no content is appended, to return consistent data structure
+        const page = await notion.pages.retrieve({ page_id: pageId });
+        return { 
+            success: true, 
+            message: `No content provided or parsed to append to record: ${identifier}`,
+            statusCode: 200,
+            data: {
+                id: page.id,
+                url: (page as any).url,
+                properties: (page as any).properties
+            }
+        };
     }
 
     await notion.blocks.children.append({
         block_id: pageId,
         children: children as any, 
     });
-    return { success: true, message: `Successfully appended ${children.length} items to record: ${identifier}`, statusCode: 200 };
+
+    // Retrieve the page to get its updated state and URL
+    const updatedPage = await notion.pages.retrieve({ page_id: pageId });
+
+    return { 
+        success: true, 
+        message: `Successfully appended ${children.length} items to record: ${identifier}`,
+        statusCode: 200,
+        data: {
+            id: updatedPage.id,
+            url: (updatedPage as any).url,
+            properties: (updatedPage as any).properties
+        }
+    };
 }
 
 // --- New function for handling QUERY intent ---
