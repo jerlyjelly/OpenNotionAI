@@ -113,6 +113,15 @@ export function ChatArea() {
     setInput("");
     setIsLoading(true); // Start loading
 
+    const thinkingMessageId = "thinking-message";
+    const thinkingMessage: Message = {
+      id: thinkingMessageId,
+      role: "assistant",
+      content: t("thinking-message-content", { defaultValue: "Thinking..." }),
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, thinkingMessage]);
+
     // Removed chat history creation and LLM call logic
 
     try {
@@ -143,15 +152,29 @@ export function ChatArea() {
       const result = await response.json();
 
       // Add assistant message from backend response
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: result.message || t("empty-response"), // Use message from backend or a fallback
-          timestamp: new Date().toISOString()
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
+        if (thinkingMsgIndex !== -1) {
+          newMessages[thinkingMsgIndex] = {
+            ...newMessages[thinkingMsgIndex],
+            id: Date.now().toString(),
+            content: result.message || t("empty-response"),
+            timestamp: new Date().toISOString()
+          };
+          return newMessages;
         }
-      ]);
+        // Fallback if thinking message was somehow removed
+        return [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: result.message || t("empty-response"),
+            timestamp: new Date().toISOString()
+          }
+        ];
+      });
 
       // If backend indicates success, maybe show a toast? (Optional)
       if (result.success) {
@@ -166,15 +189,29 @@ export function ChatArea() {
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`, // Show specific error
-          timestamp: new Date().toISOString()
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
+        if (thinkingMsgIndex !== -1) {
+          newMessages[thinkingMsgIndex] = {
+            ...newMessages[thinkingMsgIndex],
+            id: Date.now().toString(),
+            content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toISOString()
+          };
+          return newMessages;
         }
-      ]);
+        // Fallback if thinking message was somehow removed
+        return [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`, // Show specific error
+            timestamp: new Date().toISOString()
+          }
+        ];
+      });
     } finally {
        setIsLoading(false); // Stop loading regardless of outcome
     }
@@ -346,16 +383,17 @@ export function ChatArea() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-lg max-w-[75%] ${
+                  className={`px-4 py-2 rounded-lg max-w-[75%] flex items-center space-x-2 ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground"
                   }`}
                 >
                   {/* Confirmation UI Rendering Logic is fully removed */}
+                  {message.id === "thinking-message" && <Loader2 className="h-4 w-4 animate-spin" />}
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   {/* Always show timestamp if available */}
-                  {message.timestamp && (
+                  {message.timestamp && message.id !== "thinking-message" && (
                     <p className="text-xs opacity-70 mt-1">
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </p>
