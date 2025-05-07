@@ -20,6 +20,7 @@ interface ChatActionRequestBody {
     llmApiKey: string;
     llmProvider: string;
     llmModel?: string;
+    userTimezone?: string;
 }
 
 interface LlmResponse {
@@ -145,7 +146,13 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
         - number: { "number": 123 }
         - select: { "select": { "name": "Option Name" } }
         - multi_select: { "multi_select": [{ "name": "Option1" }, { "name": "Option2" }] }
-        - date: { "date": { "start": "YYYY-MM-DD" } } or { "date": { "start": "YYYY-MM-DDTHH:mm:ssZ", "time_zone": "Asia/Seoul" } }
+        - date: "For date-only values, use '{ 'date': { 'start': 'YYYY-MM-DD' } }'. " +
+                "For date-time values, provide the time in the user's local timezone, " +
+                "including its UTC offset (e.g., +09:00 or -05:00), and DO NOT include the \"time_zone\" field. " +
+                "The format for \"start\" (and \"end\", if any) should be \"YYYY-MM-DDTHH:mm:ss+HH:mm\" or \"YYYY-MM-DDTHH:mm:ss-HH:mm\". " +
+                "For example, if the user is in 'Asia/Seoul' (which corresponds to an offset like +09:00) and requests 'May 8th 2025, 5am', " +
+                "the JSON for the Notion date property should be similar to: '{ 'date': { 'start': '2025-05-08T05:00:00+09:00' } }'. " +
+                "Note that the 'Current time' value (provided earlier in the prompt) already demonstrates this offset format."
         - checkbox: { "checkbox": true | false }
         - url: { "url": "http://example.com" }
         - email: { "email": "test@example.com" }
@@ -504,7 +511,14 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
         clients = initializeClients(requestBody.notionApiKey, requestBody.llmApiKey, requestBody.llmProvider, requestBody.llmModel);
         dbSchema = await fetchNotionDatabaseSchema(clients.notion, requestBody.databaseId);
 
-        const timeZone = requestBody.userMessage.toLowerCase().includes('kst') ? 'Asia/Seoul' : 'America/New_York'; // Basic timezone detection, can be improved
+        let timeZone = 'America/New_York'; // Default timezone
+        if (requestBody.userTimezone) {
+            timeZone = requestBody.userTimezone;
+        } else {
+            // Fallback to basic detection if userTimezone is not sent by client (less reliable)
+            console.warn("User timezone not provided by client, falling back to basic detection.");
+            timeZone = requestBody.userMessage.toLowerCase().includes('kst') ? 'Asia/Seoul' : 'America/New_York'; 
+        }
         const currentTime = formatInTimeZone(new Date(), timeZone, "yyyy-MM-dd'T'HH:mm:ssXXX");
 
         const prompt = constructLlmPrompt(requestBody.userMessage, currentTime, timeZone, dbSchema);

@@ -153,6 +153,9 @@ export function ChatArea() {
 
     try {
       // Call the backend endpoint
+
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
       const response = await fetch('/api/chat-action', {
         method: 'POST',
         headers: {
@@ -164,6 +167,7 @@ export function ChatArea() {
           databaseId: notionDbId,
           llmApiKey: llmApiKey,       // Add llmApiKey
           llmProvider: llmProvider,   // Add llmProvider
+          userTimezone: userTimezone, // Add userTimezone
           // Optionally send previous messages if backend needs context,
           // but for now, just send the current message as per simplified goal.
           // chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
