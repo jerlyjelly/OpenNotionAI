@@ -53,6 +53,7 @@ interface Message {
   timestamp: string;
   links?: Array<{ title: string, url: string }>;
   data?: NotionQueryResultItem[]; // To hold structured data like query results
+  intent?: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY' | 'SUMMARIZE'; // Add intent to Message interface
   // Removed fields related to confirmation UI
 }
 
@@ -186,61 +187,68 @@ export function ChatArea() {
       // Remove thinking message
       setMessages(prev => prev.filter(m => m.id !== thinkingMessageId));
 
-      let assistantMessageContent = result.message; // Default to the message from backend
+      let assistantMessageContent = result.message; // Default to the generic message from backend
       let assistantDataLinks: Array<{ title: string, url: string }> = [];
+      let assistantMessageData: NotionQueryResultItem[] | undefined = undefined; // For QUERY results to be rendered as blocks
 
       if (result.success) {
         if (result.intent === 'SUMMARIZE') {
           if (result.data && result.data.summary) {
-            // For SUMMARIZE, the main content is the summary itself.
-            // The `result.message` can be a generic success message.
-            assistantMessageContent = result.data.summary;
+            assistantMessageContent = result.data.summary; // Summary text becomes the main content
           } else {
+            // If summary data is missing, stick with the generic message from backend
             assistantMessageContent = result.message || "Summary data was not found.";
           }
+          // No separate links for SUMMARIZE intent usually, the content is the summary itself
         } else if (result.intent === 'QUERY') {
-          if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-            // For QUERY, format the list of pages
-            // The `result.message` (e.g., "Successfully queried X records.") can be prepended or handled as a separate notification.
-            // For now, let's prepend it and list the pages.
-            let queryItemsContent = "";
-            result.data.forEach((page: any) => {
-              const pageTitle = page.properties && Object.values(page.properties).find((prop: any) => prop.type === 'title')?.title[0]?.plain_text || page.id;
-              queryItemsContent += `\n- [${pageTitle}](${page.url})`;
-              assistantDataLinks.push({ title: pageTitle, url: page.url });
-            });
-            assistantMessageContent = `${result.message}\nHere are the results:${queryItemsContent}`;
-          } else if (result.data && Array.isArray(result.data) && result.data.length === 0) {
-            assistantMessageContent = result.message || "No records found matching your query.";
+          // Generic message is already set as default for assistantMessageContent
+          if (result.data && Array.isArray(result.data)) {
+            if (result.data.length > 0) {
+                // Populate assistantDataLinks for rendering as clickable links below the message
+                // The detailed rendering of these items as blocks is handled by the JSX using message.data
+                assistantMessageData = result.data as NotionQueryResultItem[]; // Pass the raw data for block rendering
+                result.data.forEach((page: any) => {
+                    let pageTitle = page.id; // Default to page.id
+                    if (page.properties) {
+                        const titleProperty = Object.values(page.properties).find((prop: any) => prop.type === 'title') as any;
+                        if (titleProperty && titleProperty.title && Array.isArray(titleProperty.title) && titleProperty.title.length > 0) {
+                            if (titleProperty.title[0].plain_text) {
+                                pageTitle = titleProperty.title[0].plain_text;
+                            } else if (titleProperty.title[0].text && titleProperty.title[0].text.content) {
+                                pageTitle = titleProperty.title[0].text.content;
+                            }
+                        }
+                    }
+                    assistantDataLinks.push({ title: pageTitle, url: page.url });
+                });
+            } else {
+                 // message already says "Successfully queried 0 records" or similar, or "No records found..."
+            }
           } else {
-            assistantMessageContent = result.message || "Query was successful but returned no parseable data.";
+            // Stick with the generic message if data is not as expected
           }
         } else if (result.intent === 'CREATE' || result.intent === 'UPDATE' || result.intent === 'APPEND') {
-            // For these actions, the backend message is usually sufficient.
-            // The 'data' object contains 'id' and 'url' which can be used to create a direct link.
+            // Generic message is already set as default
             if (result.data && result.data.url) {
-                 // Try to get a title for the link
-                 let pageTitle = "View Item"; // Default title
+                 let pageTitle = "View Item"; 
                  if (result.data.properties) {
-                    const titleProp = Object.values(result.data.properties).find((prop: any) => prop.type === 'title');
-                    if (titleProp && (titleProp as any).title && (titleProp as any).title[0] && (titleProp as any).title[0].plain_text) {
-                        pageTitle = (titleProp as any).title[0].plain_text;
+                    const titleProp = Object.values(result.data.properties).find((prop: any) => prop.type === 'title') as any;
+                    if (titleProp && titleProp.title && Array.isArray(titleProp.title) && titleProp.title.length > 0) {
+                        if (titleProp.title[0].plain_text) {
+                            pageTitle = titleProp.title[0].plain_text;
+                        } else if (titleProp.title[0].text && titleProp.title[0].text.content) {
+                            pageTitle = titleProp.title[0].text.content;
+                        }
                     }
-                 } else if (result.identifier) { // Fallback to identifier if properties are not in data
+                 } else if (result.identifier) { 
                     pageTitle = result.identifier;
                  }
                  assistantDataLinks.push({ title: pageTitle, url: result.data.url });
-                 // The message already indicates success, the link will be separate
-                 assistantMessageContent = result.message;
-            } else {
-                assistantMessageContent = result.message;
             }
         } else {
-          // Default handling if intent is unknown or not specifically handled for data display
-          assistantMessageContent = result.message;
+          // Default handling: generic message is already set
         }
       } else {
-        // Error from backend logic (e.g., LLM error, Notion API error)
         assistantMessageContent = result.error || result.message || "An unknown error occurred.";
       }
 
@@ -250,6 +258,8 @@ export function ChatArea() {
         content: assistantMessageContent,
         timestamp: new Date().toISOString(),
         links: assistantDataLinks.length > 0 ? assistantDataLinks : undefined,
+        data: assistantMessageData, // Assign data for QUERY results
+        intent: result.intent, // Pass the intent to the message object
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -472,7 +482,8 @@ export function ChatArea() {
                 </div>
 
                 {/* Render query results if available (OUTSIDE and BELOW the bubble) */}
-                {message.role === 'assistant' && message.data && message.data.length > 0 && (
+                {/* This section specifically renders message.data for QUERY results as blocks */}
+                {message.role === 'assistant' && message.intent === 'QUERY' && message.data && message.data.length > 0 && (
                   <div className="mt-2 self-start inline-grid grid-cols-auto max-w-[75%] gap-y-1">
                     {message.data.map((item) => {
                       const title = getNotionPageTitle(item.properties);
@@ -489,6 +500,24 @@ export function ChatArea() {
                         </a>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Render general links if available (e.g., for CREATE, UPDATE, APPEND) and not a QUERY intent */}
+                {message.role === 'assistant' && message.links && message.links.length > 0 && message.intent !== 'QUERY' && (
+                  <div className="mt-2 self-start inline-grid grid-cols-auto max-w-[75%] gap-y-1">
+                    {message.links.map((link) => (
+                      <a 
+                        key={link.url} // Assuming URL is unique enough for a key here, or use index if necessary
+                        href={link.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 h-10 bg-transparent hover:bg-accent hover:text-accent-foreground rounded-md border border-input text-sm font-medium text-foreground transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group w-full"
+                      >
+                        <span className="truncate flex-grow mr-2">{link.title}</span>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-accent-foreground flex-shrink-0" />
+                      </a>
+                    ))}
                   </div>
                 )}
               </div>
