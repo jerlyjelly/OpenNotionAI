@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Eye, EyeOff, PanelLeftClose, PanelRightOpen, Info } from "lucide-react"; // Import new icons and Info icon
 import { useTranslation } from "@/i18n"; // Keep useTranslation
 import { useApiContext } from "@/context/ApiContext";
-import { LLMProvider, availableModels } from "@/lib/llm-providers";
+import { LLMProvider, availableModels, defaultModels } from "@/lib/llm-providers";
 import { InfoModal } from "@/components/InfoModal"; // Updated import
 
 
@@ -153,18 +153,33 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
           {/* LLM Model Selection */}
           <div className="space-y-2">
             <Label htmlFor="llm-model">{t("llm-model")}</Label>
-            <Select value={llmModel} onValueChange={(value) => setLlmModel(value)}>
-              <SelectTrigger id="llm-model">
-                <SelectValue placeholder={t("select-llm-model")} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableModels[llmProvider].map((model) => (
-                  <SelectItem key={model.value} value={model.value}>
-                    {model.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {llmProvider === "openrouter" ? (
+              <>
+                <Input
+                  id="llm-model" // Same ID for the label to point to
+                  type="text"
+                  value={llmModel} // llmModel will be "openrouter/auto" by default or custom value
+                  onChange={(e) => {
+                    // If input is empty, set model to default, otherwise use input value
+                    setLlmModel(e.target.value.trim() || defaultModels.openrouter);
+                  }}
+                  placeholder={t("openrouter-model-placeholder")}
+                />
+              </>
+            ) : (
+              <Select value={llmModel} onValueChange={(value) => setLlmModel(value)}>
+                <SelectTrigger id="llm-model">
+                  <SelectValue placeholder={t("select-llm-model")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels[llmProvider].map((model) => (
+                    <SelectItem key={model.value} value={model.value}>
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           
           {/* LLM API Key */}

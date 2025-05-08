@@ -3,7 +3,8 @@ import type { AppendBlockChildrenParameters, DatabaseObjectResponse, CreateComme
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { formatInTimeZone } from 'date-fns-tz';
 import dotenv from 'dotenv';
-import { defaultModels } from '../../client/src/lib/llm-providers/index'; // Adjusted path
+import { defaultModels, LLMProvider as ClientLLMProvider } from '../../client/src/lib/llm-providers/index'; // Adjusted path
+import OpenAI from "openai";
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Connect } from 'vite';
 
@@ -12,13 +13,177 @@ import type { Connect } from 'vite';
 // For now, assuming vite.config.ts handles it, or it needs to be called if this runs independently.
 // If running via Vite dev server, vite.config.ts loading it should be sufficient.
 
+// --- Server-Side LLM Abstraction ---
+interface ServerLLMInterface {
+    generateJsonContent(prompt: string): Promise<any>; // Expected to return a parsed JSON object
+    generateTextContent(prompt: string): Promise<string>; // Expected to return a plain text string
+}
+
+// Adapter for Gemini
+class GeminiAdapter implements ServerLLMInterface {
+    private model: GenerativeModel;
+    constructor(apiKey: string, modelName: string) {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        this.model = genAI.getGenerativeModel({ model: modelName });
+        console.log(`Using Gemini model via Adapter: ${modelName}`);
+    }
+
+    async generateJsonContent(prompt: string): Promise<any> {
+        const result = await this.model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+            },
+        });
+        const responseText = result.response.text();
+        if (!responseText) {
+            throw { statusCode: 500, message: "LLM (Gemini Adapter) returned an empty response for JSON." };
+        }
+        return JSON.parse(responseText);
+    }
+
+    async generateTextContent(prompt: string): Promise<string> {
+        const result = await this.model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+        });
+        return result.response.text();
+    }
+}
+
+// Placeholder for OpenAI Adapter
+class OpenAIAdapter implements ServerLLMInterface {
+    // private openai: any; // Would be an instance of OpenAI client
+    // private modelName: string;
+    constructor(apiKey: string, modelName: string) {
+        console.log(`Initializing OpenAIAdapter with model: ${modelName}. API Key: ${apiKey ? 'provided' : 'missing'}`);
+        // this.openai = new OpenAI({ apiKey }); // Example: const OpenAI = require('openai');
+        // this.modelName = modelName;
+        // IMPORTANT: Actual OpenAI SDK integration would go here.
+    }
+    async generateJsonContent(prompt: string): Promise<any> {
+        console.warn("OpenAIAdapter: generateJsonContent is a placeholder and not implemented.");
+        // Example:
+        // const response = await this.openai.chat.completions.create({
+        //   model: this.modelName,
+        //   messages: [{ role: "user", content: prompt }],
+        //   response_format: { type: "json_object" },
+        // });
+        // return JSON.parse(response.choices[0].message.content);
+        throw { statusCode: 501, message: "OpenAI provider not fully implemented for JSON content generation." };
+    }
+    async generateTextContent(prompt: string): Promise<string> {
+        console.warn("OpenAIAdapter: generateTextContent is a placeholder and not implemented.");
+        // Example:
+        // const response = await this.openai.chat.completions.create({
+        //   model: this.modelName,
+        //   messages: [{ role: "user", content: prompt }],
+        // });
+        // return response.choices[0].message.content;
+        throw { statusCode: 501, message: "OpenAI provider not fully implemented for text content generation." };
+    }
+}
+
+// Placeholder for Anthropic Adapter
+class AnthropicAdapter implements ServerLLMInterface {
+    constructor(apiKey: string, modelName: string) {
+        console.log(`Initializing AnthropicAdapter with model: ${modelName}. API Key: ${apiKey ? 'provided' : 'missing'}`);
+        // IMPORTANT: Actual Anthropic SDK integration would go here.
+        // const Anthropic = require('@anthropic-ai/sdk');
+        // this.anthropic = new Anthropic({ apiKey });
+        // this.modelName = modelName;
+    }
+    async generateJsonContent(prompt: string): Promise<any> {
+        console.warn("AnthropicAdapter: generateJsonContent is a placeholder and not implemented.");
+        // Actual implementation would call Anthropic API and parse JSON
+        throw { statusCode: 501, message: "Anthropic provider not fully implemented for JSON content generation." };
+    }
+    async generateTextContent(prompt: string): Promise<string> {
+        console.warn("AnthropicAdapter: generateTextContent is a placeholder and not implemented.");
+        // Actual implementation would call Anthropic API
+        throw { statusCode: 501, message: "Anthropic provider not fully implemented for text content generation." };
+    }
+}
+
+// Placeholder for OpenRouter Adapter
+class OpenRouterAdapter implements ServerLLMInterface {
+    private modelName: string; // Store modelName for use in methods
+    private apiKey: string; // Store apiKey
+    private openrouterClient: OpenAI; // Instance of OpenAI-compatible client
+
+    constructor(apiKey: string, modelName: string) {
+        this.modelName = modelName;
+        this.apiKey = apiKey; 
+        console.log(`Initializing OpenRouterAdapter with target model: '${this.modelName}'. API Key: ${apiKey ? 'provided' : 'missing'}`);
+
+        this.openrouterClient = new OpenAI({
+          apiKey: this.apiKey,
+          baseURL: "https://openrouter.ai/api/v1",
+          defaultHeaders: { // Recommended by OpenRouter for routing/analytics
+            "HTTP-Referer": "https://github.com/OpenNotionAI/OpenNotionAI", // TODO: Replace with your actual site URL if applicable
+            "X-Title": "OpenNotionAI", // TODO: Replace with your actual app name if applicable
+          },
+        });
+
+        // TODO: Implement robust OpenRouter API validation for the modelName and apiKey.
+        // This could involve an async method called after construction or an async factory pattern.
+        // Example: Make a lightweight API call like listing models or retrieving the specific model.
+        // For now, we proceed with the provided values and log a warning.
+        if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') { 
+            console.warn(`OpenRouterAdapter: Live API key/model validation for model '${this.modelName}' is a TODO and not yet implemented. Proceeding with provided values.`);
+        }
+    }
+
+    async generateJsonContent(prompt: string): Promise<any> {
+        console.log(`OpenRouterAdapter: generateJsonContent called for model '${this.modelName}'.`);
+        try {
+          const response = await this.openrouterClient.chat.completions.create({
+            model: this.modelName,
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" }, 
+          });
+
+          if (!response.choices[0]?.message?.content) {
+            console.error(`OpenRouter (JSON) for model '${this.modelName}' returned no content or unexpected structure:`, response);
+            throw new Error("Empty content or unexpected structure from OpenRouter");
+          }
+          return JSON.parse(response.choices[0].message.content);
+        } catch (error: any) {
+          console.error(`Error calling OpenRouter (JSON) for model '${this.modelName}':`, error);
+          // Attempt to parse more specific error messages from OpenRouter if available
+          const errorMessage = error.response?.data?.error?.message || error.message || "Unknown OpenRouter API error";
+          throw { statusCode: error.status || 500, message: `OpenRouter API error (JSON) for model '${this.modelName}': ${errorMessage}` };
+        }
+    }
+
+    async generateTextContent(prompt: string): Promise<string> {
+        console.log(`OpenRouterAdapter: generateTextContent called for model '${this.modelName}'.`);
+        try {
+          const response = await this.openrouterClient.chat.completions.create({
+            model: this.modelName,
+            messages: [{ role: "user", content: prompt }],
+          });
+
+          if (!response.choices[0]?.message?.content) {
+            console.error(`OpenRouter (Text) for model '${this.modelName}' returned no content or unexpected structure:`, response);
+            throw new Error("Empty content or unexpected structure from OpenRouter");
+          }
+          return response.choices[0].message.content;
+        } catch (error: any) {
+          console.error(`Error calling OpenRouter (Text) for model '${this.modelName}':`, error);
+          const errorMessage = error.response?.data?.error?.message || error.message || "Unknown OpenRouter API error";
+          throw { statusCode: error.status || 500, message: `OpenRouter API error (Text) for model '${this.modelName}': ${errorMessage}` };
+        }
+    }
+}
+
+
 // --- Type Definitions for Clarity ---
 interface ChatActionRequestBody {
     userMessage: string;
     notionApiKey: string;
     databaseId: string;
     llmApiKey: string;
-    llmProvider: string;
+    llmProvider: ClientLLMProvider; // Use the client-side type
     llmModel?: string;
     userTimezone?: string;
 }
@@ -63,16 +228,60 @@ async function parseRequestBody(req: IncomingMessage): Promise<ChatActionRequest
     });
 }
 
-function initializeClients(notionApiKey: string, llmApiKey: string, llmProvider: string, llmModel?: string): { notion: NotionClient, model: GenerativeModel } {
+function initializeClients(notionApiKey: string, llmApiKey: string, llmProvider: ClientLLMProvider, llmModelName?: string): { notion: NotionClient, model: ServerLLMInterface } {
     const notion = new NotionClient({ auth: notionApiKey });
-    if (llmProvider !== 'gemini') {
-        throw { statusCode: 400, message: 'Currently only gemini LLM provider is supported for chat actions.' };
+    
+    // Log inputs for easier debugging of model selection issues
+    console.log(`[initializeClients] Input - llmProvider: '${llmProvider}', llmModelName: '${llmModelName === undefined ? 'undefined' : llmModelName}'`);
+
+    let chosenModelName: string;
+    // Prioritize llmModelName if it's provided, not null, and not just whitespace after trimming.
+    if (llmModelName && llmModelName.trim() !== "") {
+        chosenModelName = llmModelName.trim();
+    } else {
+        chosenModelName = defaultModels[llmProvider];
+        // Log if falling back to default, this helps diagnose client-sending issues.
+        console.log(`[initializeClients] llmModelName ('${llmModelName === undefined ? 'undefined' : llmModelName}') was empty or not provided, falling back to default model '${chosenModelName}' for provider '${llmProvider}'.`);
     }
-    const genAI = new GoogleGenerativeAI(llmApiKey);
-    const selectedModelName = llmModel || defaultModels.gemini;
-    console.log(`Using Gemini model: ${selectedModelName}`);
-    const model = genAI.getGenerativeModel({ model: selectedModelName });
-    return { notion, model };
+
+    // Final check if a model name could be determined.
+    if (!chosenModelName) {
+        // This case should ideally not be hit if defaultModels is comprehensive and correct for all providers.
+        throw { statusCode: 400, message: `Could not determine a model for provider '${llmProvider}'. No specific model provided and no (or invalid) default model found.` };
+    }
+    
+    const selectedModelName = chosenModelName;
+    // Developer Note: If the user reports that a custom model typed in the UI (e.g., for OpenRouter)
+    // is not being used, and the logs above show that 'llmModelName' from the client was undefined, empty,
+    // or already the default model name (e.g., "openrouter/auto"), the issue likely lies in how the client-side
+    // application collects and sends the 'llmModel' value in the request body to the server.
+    // The server-side logic here correctly prioritizes a non-empty llmModelName from the request.
+
+    console.log(`[initializeClients] Determined selectedModelName for LLM provider '${llmProvider}': '${selectedModelName}'`);
+
+    let modelAdapter: ServerLLMInterface;
+
+    switch (llmProvider) {
+        case 'gemini':
+            modelAdapter = new GeminiAdapter(llmApiKey, selectedModelName);
+            break;
+        case 'openai':
+            modelAdapter = new OpenAIAdapter(llmApiKey, selectedModelName);
+            break;
+        case 'anthropic':
+            modelAdapter = new AnthropicAdapter(llmApiKey, selectedModelName);
+            break;
+        case 'openrouter':
+            modelAdapter = new OpenRouterAdapter(llmApiKey, selectedModelName);
+            break;
+        default:
+            // Optional: handle exhaustive check if ClientLLMProvider is a strict union
+            // const _exhaustiveCheck: never = llmProvider;
+            throw { statusCode: 400, message: `Unsupported LLM provider: ${llmProvider}` };
+    }
+    
+    // console.log(`Initialized LLM provider: ${llmProvider} with model: ${selectedModelName}`); // Covered by the more detailed log above
+    return { notion, model: modelAdapter };
 }
 
 async function fetchNotionDatabaseSchema(notion: NotionClient, databaseId: string): Promise<NotionDatabaseSchema> {
@@ -278,24 +487,19 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
       `;
 }
 
-async function callLlm(model: GenerativeModel, prompt: string): Promise<any> {
+async function callLlm(model: ServerLLMInterface, prompt: string): Promise<any> {
     try {
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-            },
-        });
-        const responseText = result.response.text();
-        if (!responseText) {
-            console.error("LLM returned an empty response text.");
-            throw { statusCode: 500, message: "LLM returned an empty response." };
-        }
-        return JSON.parse(responseText);
+        // The adapter's method is responsible for ensuring JSON format
+        const parsedJsonResponse = await model.generateJsonContent(prompt);
+        return parsedJsonResponse;
     } catch (error: any) {
-        console.error("Error calling LLM or parsing its response:", error);
-        if (error instanceof SyntaxError || (error.message && error.message.toLowerCase().includes('json'))) {
+        console.error("Error calling LLM or parsing its response (via Adapter):", error);
+        if (error instanceof SyntaxError || (error.message && (error.message.toLowerCase().includes('json') || error.message.toLowerCase().includes('unexpected token')))) {
              throw { statusCode: 500, message: `Failed to parse LLM response as JSON: ${error.message}`, details: error };
+        }
+        // Re-throw error from adapter if it's already structured, or wrap it
+        if (error.statusCode && error.message) {
+            throw error;
         }
         throw { statusCode: 500, message: `Failed to get response from LLM: ${error.message || error}` };
     }
@@ -752,7 +956,8 @@ async function retrievePageContentAsTextRecursive(notion: NotionClient, blockId:
 
         if (block.has_children) {
             // Avoid recursing into linked pages/databases or complex synced blocks directly for summarization context
-            if (block.type !== 'child_page' && 
+            if (block.type && 
+                block.type !== 'child_page' && 
                 block.type !== 'child_database' &&
                 !(block.type === 'synced_block' && block.synced_block?.synced_from !== null)
             ) {
@@ -766,7 +971,7 @@ async function retrievePageContentAsTextRecursive(notion: NotionClient, blockId:
 // --- Handler for SUMMARIZE intent ---
 async function handleSummarizeAction(
     notion: NotionClient,
-    llmModel: GenerativeModel,
+    llmAdapter: ServerLLMInterface, // Changed from llmModel to llmAdapter
     databaseId: string, // Contextual database ID from the original request
     dbSchema: NotionDatabaseSchema, // Schema of that contextual database
     llmIntentResponse: LlmResponse // The validated response from the first LLM call
@@ -834,11 +1039,8 @@ async function handleSummarizeAction(
         
         console.log("Summarization Prompt to LLM:", summarizationPrompt.substring(0, 500) + "..."); // Log start of prompt
 
-        const llmResult = await llmModel.generateContent({
-            contents: [{ role: "user", parts: [{ text: summarizationPrompt }] }],
-            // No specific responseMimeType needed if we expect plain text summary
-        });
-        const summary = llmResult.response.text();
+        // Use the adapter's text generation method
+        const summary = await llmAdapter.generateTextContent(summarizationPrompt);
 
         return {
             success: true,
@@ -1008,7 +1210,7 @@ async function handleQueryCommentsAction(
 
 async function executeNotionAction(
     notion: NotionClient,
-    llmModel: GenerativeModel, 
+    llmAdapter: ServerLLMInterface, // Changed parameter name and type
     llmResponse: LlmResponse, 
     databaseId: string,
     dbSchema: NotionDatabaseSchema
@@ -1043,7 +1245,7 @@ async function executeNotionAction(
             case 'QUERY':
                 return await handleQueryAction(notion, databaseId, filter, sorts);
             case 'SUMMARIZE':
-                return await handleSummarizeAction(notion, llmModel, databaseId, dbSchema, llmResponse);
+                return await handleSummarizeAction(notion, llmAdapter, databaseId, dbSchema, llmResponse); // Pass llmAdapter
             case 'COMMENT':
                 return await handleCommentAction(notion, databaseId, dbSchema, llmResponse);
             case 'QUERY_COMMENTS':
@@ -1070,7 +1272,7 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
     }
 
     let requestBody: ChatActionRequestBody;
-    let clients: { notion: NotionClient, model: GenerativeModel };
+    let clients: { notion: NotionClient, model: ServerLLMInterface }; // Updated type for model
     let dbSchema: NotionDatabaseSchema;
     // Correctly initializing llmIntentIdentificationResponse to null
     let llmIntentIdentificationResponse: LlmResponse | null = null; 
@@ -1119,7 +1321,7 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
 
         const actionResult = await executeNotionAction(
             clients.notion,
-            clients.model, 
+            clients.model, // Pass the adapter instance
             llmIntentIdentificationResponse,
             requestBody.databaseId,
             dbSchema

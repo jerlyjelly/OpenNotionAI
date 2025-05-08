@@ -20,7 +20,7 @@ export const defaultModels = {
   openai: "gpt-4o",
   anthropic: "claude-3-5-sonnet-20240620",
   gemini: "gemini-2.5-flash-preview-04-17",
-  openrouter: ""
+  openrouter: "openrouter/auto"
 }
 
 // Available models for each provider
@@ -42,11 +42,7 @@ export const availableModels = {
     { value: "gemini-pro", label: "Gemini Pro" }
   ],
   openrouter: [
-    { value: "", label: "Default (OpenRouter Choice)" },
-    { value: "openai/gpt-4o", label: "OpenAI GPT-4o" },
-    { value: "anthropic/claude-3-5-sonnet", label: "Anthropic Claude 3.5 Sonnet" },
-    { value: "google/gemini-1.5-pro-latest", label: "Google Gemini 1.5 Pro" },
-    { value: "meta-llama/llama-3-70b-instruct", label: "Meta Llama 3 70B" }
+    { value: "openrouter/auto", label: "Default (OpenRouter Auto-Select)" },
   ]
 }
 

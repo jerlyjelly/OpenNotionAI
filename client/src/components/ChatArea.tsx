@@ -75,6 +75,7 @@ export function ChatArea() {
     notionDbId,   // Corrected name
     llmApiKey,    // Add llmApiKey
     llmProvider,  // Add llmProvider
+    llmModel,     // <<< Add llmModel from context
     // Removed chatWithLLM and notionClient
   } = useApiContext();
 
@@ -172,6 +173,7 @@ export function ChatArea() {
           databaseId: notionDbId,
           llmApiKey: llmApiKey,       // Add llmApiKey
           llmProvider: llmProvider,   // Add llmProvider
+          llmModel: llmModel,         // <<< Add llmModel to the request body
           userTimezone: userTimezone, // Add userTimezone
           // Optionally send previous messages if backend needs context,
           // but for now, just send the current message as per simplified goal.
@@ -236,7 +238,7 @@ export function ChatArea() {
             if (result.data) {
                 const itemsToProcess = Array.isArray(result.data) ? result.data : [result.data];
 
-                itemsToProcess.forEach(item => {
+                itemsToProcess.forEach((item: NotionQueryResultItem | any) => {
                     if (item && item.url) { // Each item must have a URL to be linked
                         let pageTitle = getNotionPageTitle(item.properties); // Use the helper
 
@@ -277,8 +279,8 @@ export function ChatArea() {
 
       setMessages(prev => [...prev, assistantMessage]);
 
-    } catch (error) {
-      if (error.name === 'AbortError') {
+    } catch (error: any) {
+      if (error instanceof Error && error.name === 'AbortError') {
         console.log("Fetch aborted by user.");
         setMessages(prev => prev.filter(m => m.id !== thinkingMessageId)); // Remove thinking message
         // Optionally add a message indicating the stop, or just silently stop
