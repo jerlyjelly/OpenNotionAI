@@ -1,9 +1,11 @@
+import logoLight from "@/assets/logo-light.png";
+import logoDark from "@/assets/logo-dark.png";
 import { useTheme } from "@/components/ui/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/i18n";
-import { Sun, Moon, Box, PanelLeftClose, PanelRightOpen } from "lucide-react";
+import { Sun, Moon, PanelLeftClose, PanelRightOpen } from "lucide-react";
 
 export function Header({ 
   isCollapsed, 
@@ -34,7 +36,7 @@ export function Header({
         
         {!isCollapsed && (
           <>
-            <Box className="h-8 w-8" />
+            <img src={theme === "dark" ? logoDark : logoLight} alt="Open Notion AI Logo" className="h-8 w-8" />
             <h1 className="text-lg font-semibold">Open Notion AI</h1>
           </>
         )}
