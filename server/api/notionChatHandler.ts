@@ -53,38 +53,68 @@ class GeminiAdapter implements ServerLLMInterface {
 
 // Placeholder for OpenAI Adapter
 class OpenAIAdapter implements ServerLLMInterface {
-    // private openai: any; // Would be an instance of OpenAI client
-    // private modelName: string;
+    private openai: OpenAI;
+    private modelName: string;
+
     constructor(apiKey: string, modelName: string) {
-        console.log(`Initializing OpenAIAdapter with model: ${modelName}. API Key: ${apiKey ? 'provided' : 'missing'}`);
-        // this.openai = new OpenAI({ apiKey }); // Example: const OpenAI = require('openai');
-        // this.modelName = modelName;
-        // IMPORTANT: Actual OpenAI SDK integration would go here.
+        if (!apiKey) {
+            throw { statusCode: 400, message: "OpenAI API key is missing." };
+        }
+        this.openai = new OpenAI({ apiKey });
+        this.modelName = modelName;
+        console.log(`Initializing OpenAIAdapter with model: ${this.modelName}. API Key: provided`);
     }
+
     async generateJsonContent(prompt: string): Promise<any> {
-        console.warn("OpenAIAdapter: generateJsonContent is a placeholder and not implemented.");
-        // Example:
-        // const response = await this.openai.chat.completions.create({
-        //   model: this.modelName,
-        //   messages: [{ role: "user", content: prompt }],
-        //   response_format: { type: "json_object" },
-        // });
-        // return JSON.parse(response.choices[0].message.content);
-        throw { statusCode: 501, message: "OpenAI provider not fully implemented for JSON content generation." };
+        console.log(`OpenAIAdapter: generateJsonContent called for model '${this.modelName}'.`);
+        try {
+            const response = await this.openai.chat.completions.create({
+                model: this.modelName,
+                messages: [{ role: "user", content: prompt }],
+                response_format: { type: "json_object" },
+            });
+
+            if (!response.choices[0]?.message?.content) {
+                console.error(`OpenAI (JSON) for model '${this.modelName}' returned no content or unexpected structure:`, response);
+                throw new Error("Empty content or unexpected structure from OpenAI");
+            }
+            return JSON.parse(response.choices[0].message.content);
+        } catch (error: any) {
+            console.error(`Error calling OpenAI (JSON) for model '${this.modelName}':`, error);
+            const errorMessage = error.message || "Unknown OpenAI API error";
+            let statusCode = 500;
+            if (error instanceof OpenAI.APIError) {
+                statusCode = error.status || 500;
+            }
+            throw { statusCode: statusCode, message: `OpenAI API error (JSON) for model '${this.modelName}': ${errorMessage}`, details: error.error || error };
+        }
     }
+
     async generateTextContent(prompt: string): Promise<string> {
-        console.warn("OpenAIAdapter: generateTextContent is a placeholder and not implemented.");
-        // Example:
-        // const response = await this.openai.chat.completions.create({
-        //   model: this.modelName,
-        //   messages: [{ role: "user", content: prompt }],
-        // });
-        // return response.choices[0].message.content;
-        throw { statusCode: 501, message: "OpenAI provider not fully implemented for text content generation." };
+        console.log(`OpenAIAdapter: generateTextContent called for model '${this.modelName}'.`);
+        try {
+            const response = await this.openai.chat.completions.create({
+                model: this.modelName,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            if (!response.choices[0]?.message?.content) {
+                console.error(`OpenAI (Text) for model '${this.modelName}' returned no content or unexpected structure:`, response);
+                throw new Error("Empty content or unexpected structure from OpenAI");
+            }
+            return response.choices[0].message.content;
+        } catch (error: any) {
+            console.error(`Error calling OpenAI (Text) for model '${this.modelName}':`, error);
+            const errorMessage = error.message || "Unknown OpenAI API error";
+            let statusCode = 500;
+            if (error instanceof OpenAI.APIError) {
+                statusCode = error.status || 500;
+            }
+            throw { statusCode: statusCode, message: `OpenAI API error (Text) for model '${this.modelName}': ${errorMessage}`, details: error.error || error };
+        }
     }
 }
 
-// Placeholder for Anthropic Adapter
 class AnthropicAdapter implements ServerLLMInterface {
     private anthropic: Anthropic;
     private modelName: string;
@@ -162,7 +192,6 @@ class AnthropicAdapter implements ServerLLMInterface {
     }
 }
 
-// Placeholder for OpenRouter Adapter
 class OpenRouterAdapter implements ServerLLMInterface {
     private modelName: string; // Store modelName for use in methods
     private apiKey: string; // Store apiKey

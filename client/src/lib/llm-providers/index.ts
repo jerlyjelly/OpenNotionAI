@@ -27,8 +27,8 @@ export const defaultModels = {
 export const availableModels = {
   openai: [
     { value: "gpt-4o", label: "GPT-4o" },
-    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
+    { value: "gpt-4.1", label: "GPT-4.1" },
+    { value: "o4-mini", label: "o4 Mini" }
   ],
   anthropic: [
     { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
