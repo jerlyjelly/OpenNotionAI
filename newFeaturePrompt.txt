@@ -6,6 +6,6 @@ You should read @notionChatHandler.ts very carefully and examine how Notion func
 
 With the above information, I want you to implement Natural Language Database Querying. Something like "What are my to-dos for today?" or "Find notes tagged with 'meeting' from last week." 
 
-Make sure the refactoring improves / maintains fast function calling with optmized code. 
+Make sure the new feature improves / maintains fast function calling with optmized code. 
 
 I want you to ultrathink hard and correctly implement this 

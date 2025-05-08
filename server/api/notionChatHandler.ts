@@ -1,5 +1,5 @@
 import { Client as NotionClient } from "@notionhq/client";
-import type { AppendBlockChildrenParameters, DatabaseObjectResponse } from "@notionhq/client/build/src/api-endpoints";
+import type { AppendBlockChildrenParameters, DatabaseObjectResponse, CreateCommentParameters, CommentObjectResponse, PartialCommentObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { formatInTimeZone } from 'date-fns-tz';
 import dotenv from 'dotenv';
@@ -24,12 +24,14 @@ interface ChatActionRequestBody {
 }
 
 interface LlmResponse {
-    intent: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY' | 'SUMMARIZE';
+    intent: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY' | 'SUMMARIZE' | 'COMMENT' | 'QUERY_COMMENTS';
     identifier?: string | null;
-    properties?: Record<string, any> | Array<Record<string, any>>; // For CREATE (array), UPDATE/APPEND (single object). Null for QUERY/DELETE/SUMMARIZE.
-    filter?: Record<string, any>;    // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
-    sorts?: any[];                   // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
-    targetType?: 'PAGE' | 'DATABASE_QUERY'; // Specifically for SUMMARIZE intent
+    properties?: Record<string, any> | Array<Record<string, any>>;
+    filter?: Record<string, any>;
+    sorts?: any[];
+    targetType?: 'PAGE' | 'DATABASE_QUERY';
+    commentText?: string;
+    discussionId?: string | null;
 }
 
 type NotionDatabaseSchema = DatabaseObjectResponse["properties"];
@@ -92,7 +94,7 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
         Notion Database Schema:
         ${JSON.stringify(dbSchema, null, 2)}
 
-        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, APPEND, QUERY, or SUMMARIZE) and extract the necessary information.
+        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, APPEND, QUERY, SUMMARIZE, COMMENT, or QUERY_COMMENTS) and extract the necessary information.
 
         - If the intent is CREATE:
           - If the user asks to create multiple items (e.g., "Create tasks: 1. Task A. 2. Task B."), "properties" MUST be an array of property objects, one for each item.
@@ -104,19 +106,28 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
         - If the intent is SUMMARIZE, determine if the user wants to summarize a specific page by its title or pages resulting from a database query.
           - If summarizing a specific page by title: set "targetType": "PAGE" and "identifier": "Page Title".
           - If summarizing pages from a query: set "targetType": "DATABASE_QUERY" and provide "filter" and optional "sorts" objects, similar to the QUERY intent. "identifier" should be null.
+        - If the intent is COMMENT:
+          - Extract the "commentText" (the content of the comment).
+          - If adding a new comment to a page: set "identifier" to the page's title, and "discussionId" to null.
+          - If replying to an existing discussion: set "discussionId" to the ID of that discussion. "identifier" (page title) can be provided for context.
+          - If a discussionId is not clearly identifiable for a reply, create a page-level comment related to the context.
+        - If the intent is QUERY_COMMENTS:
+          - Extract the "identifier" which is the title of the page whose comments are to be queried.
         - Refer to Notion API documentation for filter conditions (e.g., text, number, date, select, multi_select, status, checkbox, etc.) and sort objects.
         - Date conditions like "today", "yesterday", "last week", "next month" should be resolved relative to the "Current time".
         - Pay close attention to property names and their types from the schema to construct correct filters.
 
         Respond ONLY with a JSON object in the following format:
         {
-          "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND" | "QUERY" | "SUMMARIZE",
-          "identifier": "Unique text identifier for UPDATE/DELETE/APPEND, or Page Title for SUMMARIZE (targetType: PAGE). Null otherwise.",
+          "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND" | "QUERY" | "SUMMARIZE" | "COMMENT" | "QUERY_COMMENTS",
+          "identifier": "Unique text identifier for UPDATE/DELETE/APPEND. Page Title for SUMMARIZE (targetType: PAGE), for a page-level COMMENT, or for QUERY_COMMENTS. Null for QUERY, CREATE (multi-item), or COMMENT if discussionId is provided and identifier is not page title.",
           "properties": [ { /* PropertyName: { type: "value", ... } */ } ] /* For CREATE with multiple items. */
-                      /* OR { PropertyName: { type: "value", ... } } /* For CREATE (single item), UPDATE, APPEND. Null for QUERY/DELETE/SUMMARIZE. */,
+                      /* OR { PropertyName: { type: "value", ... } } /* For CREATE (single item), UPDATE, APPEND. Null for QUERY/DELETE/SUMMARIZE/COMMENT/QUERY_COMMENTS. */,
           "filter": { /* Notion API filter object for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ },
           "sorts": [ /* Notion API sorts array for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ ],
-          "targetType": "PAGE" | "DATABASE_QUERY" /* Only for SUMMARIZE intent. Null otherwise. */
+          "targetType": "PAGE" | "DATABASE_QUERY" /* Only for SUMMARIZE intent. Null otherwise. */,
+          "commentText": "Text of the comment. Only for COMMENT intent. Null otherwise.",
+          "discussionId": "ID of the discussion to reply to. Only for COMMENT intent (reply mode). Null otherwise, including for new page-level comments."
         }
 
         Example for CREATE intent for "Create these tasks: 1. Call supplier A. 2. Email invoice to client B, due today.":
@@ -135,7 +146,9 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
           ],
           "filter": null,
           "sorts": null,
-          "targetType": null
+          "targetType": null,
+          "commentText": null,
+          "discussionId": null
         }
 
         Example for QUERY intent for "What are my tasks due today?":
@@ -166,7 +179,9 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
               "direction": "ascending"
             }
           ],
-          "targetType": null
+          "targetType": null,
+          "commentText": null,
+          "discussionId": null
         }
 
         Example for SUMMARIZE (PAGE) intent for "Summarize the 'Q2 Research Findings' page.":
@@ -176,7 +191,9 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
           "properties": null,
           "filter": null,
           "sorts": null,
-          "targetType": "PAGE"
+          "targetType": "PAGE",
+          "commentText": null,
+          "discussionId": null
         }
 
         Example for SUMMARIZE (DATABASE_QUERY) intent for "Key takeaways from notes tagged 'strategy session'.":
@@ -192,7 +209,48 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
             }
           },
           "sorts": [{ "timestamp": "last_edited_time", "direction": "descending" }],
-          "targetType": "DATABASE_QUERY"
+          "targetType": "DATABASE_QUERY",
+          "commentText": null,
+          "discussionId": null
+        }
+
+        Example for COMMENT (new page comment):
+        User: "Add a comment to 'Project Alpha Docs': 'Needs review by Friday.'"
+        {
+          "intent": "COMMENT",
+          "identifier": "Project Alpha Docs",
+          "properties": null,
+          "filter": null,
+          "sorts": null,
+          "targetType": null,
+          "commentText": "Needs review by Friday.",
+          "discussionId": null
+        }
+
+        Example for COMMENT (reply to discussion):
+        User: "On page 'Project Alpha Docs', reply to discussion 'xyz-789' saying 'Good point made!'"
+        {
+          "intent": "COMMENT",
+          "identifier": "Project Alpha Docs", 
+          "properties": null,
+          "filter": null,
+          "sorts": null,
+          "targetType": null,
+          "commentText": "Good point made!",
+          "discussionId": "xyz-789"
+        }
+
+        Example for QUERY_COMMENTS:
+        User: "What are the comments on the 'Sprint Planning' page?"
+        {
+          "intent": "QUERY_COMMENTS",
+          "identifier": "Sprint Planning",
+          "properties": null,
+          "filter": null,
+          "sorts": null,
+          "targetType": null,
+          "commentText": null,
+          "discussionId": null
         }
 
         Ensure the property values in the "properties" object (for CREATE/UPDATE/APPEND) strictly adhere to the Notion API format required for each property type defined in the schema. For example:
@@ -245,9 +303,9 @@ async function callLlm(model: GenerativeModel, prompt: string): Promise<any> {
 
 function validateLlmResponse(llmResponse: any): LlmResponse {
     console.log("LLM Raw Response:", JSON.stringify(llmResponse, null, 2));
-    const { intent, identifier, properties: llmProperties, filter, sorts, targetType } = llmResponse;
+    const { intent, identifier, properties: llmProperties, filter, sorts, targetType, commentText, discussionId } = llmResponse;
 
-    if (!intent || !['CREATE', 'UPDATE', 'DELETE', 'APPEND', 'QUERY', 'SUMMARIZE'].includes(intent)) {
+    if (!intent || !['CREATE', 'UPDATE', 'DELETE', 'APPEND', 'QUERY', 'SUMMARIZE', 'COMMENT', 'QUERY_COMMENTS'].includes(intent)) {
         console.error("Invalid LLM response structure: Missing or invalid intent.", llmResponse);
         throw { statusCode: 500, message: 'Received invalid intent from LLM.', details: llmResponse };
     }
@@ -306,6 +364,28 @@ function validateLlmResponse(llmResponse: any): LlmResponse {
          if (targetType === 'DATABASE_QUERY' && sorts && !Array.isArray(sorts)) {
             console.error("LLM intent was SUMMARIZE (DATABASE_QUERY) but 'sorts' is not an array:", llmResponse);
             throw { statusCode: 400, message: 'LLM indicated SUMMARIZE (DATABASE_QUERY) but provided an invalid sorts format (must be an array).', details: llmResponse };
+        }
+    }
+
+    if (intent === 'COMMENT') {
+        if (!commentText || typeof commentText !== 'string') {
+            console.error("LLM intent was COMMENT but 'commentText' is missing or not a string.", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated COMMENT but did not provide valid commentText.', details: llmResponse };
+        }
+        if (discussionId && typeof discussionId !== 'string') {
+            console.error("LLM intent was COMMENT but 'discussionId' is not a string.", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated COMMENT with reply but discussionId is invalid.', details: llmResponse };
+        }
+        if (!discussionId && (!identifier || typeof identifier !== 'string')) {
+            console.error("LLM intent was COMMENT (new) but 'identifier' (page title) is missing or not a string.", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated new page COMMENT but did not provide a page identifier.', details: llmResponse };
+        }
+    }
+
+    if (intent === 'QUERY_COMMENTS') {
+        if (!identifier || typeof identifier !== 'string') {
+            console.error(`LLM intent was QUERY_COMMENTS but 'identifier' (page title) is missing or not a string.`, llmResponse);
+            throw { statusCode: 400, message: `LLM indicated QUERY_COMMENTS but did not provide a page identifier.`, details: llmResponse };
         }
     }
 
@@ -777,20 +857,167 @@ async function handleSummarizeAction(
     }
 }
 
+// --- New function for handling COMMENT intent ---
+async function handleCommentAction(
+    notion: NotionClient,
+    databaseId: string, 
+    dbSchema: NotionDatabaseSchema, 
+    llmResponse: LlmResponse
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
+    const { identifier, commentText, discussionId } = llmResponse;
+
+    if (!commentText) { 
+        throw { statusCode: 400, message: 'Comment text missing for COMMENT operation.' };
+    }
+
+    // Ensuring richTextPayload uses the corrected type CreateCommentParameters['rich_text']
+    const richTextPayload: CreateCommentParameters['rich_text'] = [{ type: "text", text: { content: commentText } }];
+
+    try {
+        if (discussionId) {
+            // Reply to an existing discussion
+            console.log(`Replying to discussion ${discussionId} with text: "${commentText}"`);
+            const comment = await notion.comments.create({
+                discussion_id: discussionId,
+                rich_text: richTextPayload,
+            });
+            return {
+                success: true,
+                message: `Successfully replied to discussion ${discussionId}.`,
+                data: { commentId: comment.id, object: comment.object },
+                statusCode: 201 // 201 for created resource
+            };
+        } else if (identifier) {
+            // New comment on a page (identified by title within the database context)
+            console.log(`Adding new comment to page "${identifier}" with text: "${commentText}"`);
+            const titlePropertyName = findTitlePropertyName(dbSchema);
+            const pageId = await findPageId(notion, databaseId, titlePropertyName, identifier);
+
+            const comment = await notion.comments.create({
+                parent: { page_id: pageId },
+                rich_text: richTextPayload,
+            });
+            return {
+                success: true,
+                message: `Successfully added comment to page "${identifier}".`,
+                data: { commentId: comment.id, pageId: pageId, object: comment.object },
+                statusCode: 201 // 201 for created resource
+            };
+        } else {
+            // This case should ideally be caught by validateLlmResponse
+            throw { statusCode: 400, message: 'Either page identifier (for new comment) or discussionId (for reply) is required for COMMENT operation.' };
+        }
+    } catch (error: any) {
+        console.error("Error during Notion COMMENT operation:", error);
+        // Notion API errors often have a 'body' property with JSON string
+        let notionErrorMessage = error.message || 'Unknown error';
+        let errorDetails: any = error;
+        if (error.body) {
+            try {
+                const parsedBody = JSON.parse(error.body);
+                notionErrorMessage = parsedBody.message || notionErrorMessage;
+                errorDetails = parsedBody;
+            } catch (parseError) {
+                console.warn("Failed to parse Notion error body:", parseError);
+            }
+        }
+        throw {
+            statusCode: error.status || 500, // Notion API errors often have a 'status' code
+            message: `Failed to add comment: ${notionErrorMessage}`,
+            details: errorDetails
+        };
+    }
+}
+
+// --- New function for handling QUERY_COMMENTS intent ---
+async function handleQueryCommentsAction(
+    notion: NotionClient,
+    databaseId: string,
+    dbSchema: NotionDatabaseSchema,
+    identifier: string // This is page title
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
+    try {
+        console.log(`Querying comments for page titled: "${identifier}"`);
+        const titlePropertyName = findTitlePropertyName(dbSchema);
+        const pageId = await findPageId(notion, databaseId, titlePropertyName, identifier);
+
+        const response = await notion.comments.list({ block_id: pageId });
+        
+        if (!response.results || response.results.length === 0) {
+            return {
+                success: true, // Successfully queried, but no comments found
+                message: `No comments found on page "${identifier}".`,
+                data: { comments: [] }, // Explicitly state no comments in data
+                statusCode: 200
+            };
+        }
+
+        let formattedCommentsString = `Found ${response.results.length} comments on page "${identifier}":\n`;
+
+        const commentsData = response.results.map((comment: CommentObjectResponse | PartialCommentObjectResponse) => {
+            let text = "[Could not retrieve comment text]";
+            let author = 'unknown';
+            let created_time_str = '[unknown time]';
+
+            if ('rich_text' in comment && comment.rich_text && comment.rich_text.length > 0) {
+                text = comment.rich_text.map(rt => rt.plain_text).join('');
+            }
+            if ('created_by' in comment && comment.created_by && 'id' in comment.created_by) {
+                author = `Author ID ${comment.created_by.id}`;
+            }
+            if ('created_time' in comment && comment.created_time) {
+                created_time_str = new Date(comment.created_time).toLocaleString(); // More readable date
+            }
+            
+            return { // Still return structured data for potential non-chat UI use, but also build the string
+                id: comment.id,
+                text: text,
+                author: author,
+                created_time: ('created_time' in comment && comment.created_time) ? comment.created_time : 'N/A'
+            };
+        });
+
+        commentsData.forEach(comment => {
+            formattedCommentsString += `- ${comment.author} (at ${new Date(comment.created_time).toLocaleString()}): "${comment.text}"\n`;
+        });
+
+        return {
+            success: true,
+            message: formattedCommentsString.trim(), // Send formatted string in message
+            data: { comments: commentsData }, // Keep structured data in data field for other potential uses
+            statusCode: 200
+        };
+    } catch (error: any) {
+        console.error("Error during Notion QUERY_COMMENTS operation:", error);
+        let notionErrorMessage = error.message || 'Unknown error';
+        let errorDetails: any = error;
+        if (error.body) {
+            try {
+                const parsedBody = JSON.parse(error.body);
+                notionErrorMessage = parsedBody.message || notionErrorMessage;
+                errorDetails = parsedBody;
+            } catch (parseError) { console.warn("Failed to parse Notion error body for QUERY_COMMENTS:", parseError); }
+        }
+        throw {
+            statusCode: error.status || 500,
+            message: `Failed to query comments for page "${identifier}": ${notionErrorMessage}`,
+            details: errorDetails
+        };
+    }
+}
 
 async function executeNotionAction(
     notion: NotionClient,
-    llmModel: GenerativeModel, // Added for SUMMARIZE intent
+    llmModel: GenerativeModel, 
     llmResponse: LlmResponse, 
     databaseId: string,
     dbSchema: NotionDatabaseSchema
-): Promise<{ success: boolean, message: string, details?: any, data?: any, statusCode: number }> {    try {
+): Promise<{ success: boolean, message: string, details?: any, data?: any, statusCode: number }> {    
+    try {
         const { intent, identifier, properties: llmProperties, filter, sorts } = llmResponse;
 
         switch (intent) {
             case 'CREATE':
-                // llmProperties is validated to be an object or array for CREATE.
-                // If it's a single object, wrap it in an array for handleCreateAction.
                 const propertiesForCreate = Array.isArray(llmProperties) 
                     ? llmProperties as Array<Record<string, any>> 
                     : [llmProperties as Record<string, any>];
@@ -816,10 +1043,13 @@ async function executeNotionAction(
             case 'QUERY':
                 return await handleQueryAction(notion, databaseId, filter, sorts);
             case 'SUMMARIZE':
-                // Ensure llmModel is passed to handleSummarizeAction
                 return await handleSummarizeAction(notion, llmModel, databaseId, dbSchema, llmResponse);
+            case 'COMMENT':
+                return await handleCommentAction(notion, databaseId, dbSchema, llmResponse);
+            case 'QUERY_COMMENTS':
+                if (!llmResponse.identifier) throw { statusCode: 400, message: 'Identifier (page title) missing for QUERY_COMMENTS operation.' };
+                return await handleQueryCommentsAction(notion, databaseId, dbSchema, llmResponse.identifier);
             default:
-                //This should ideally be caught by validateLlmResponse, but as a safeguard:
                 const exhaustiveCheck: never = intent;
                 throw { statusCode: 400, message: `Unsupported intent: ${exhaustiveCheck}` };
         }
@@ -836,16 +1066,16 @@ async function executeNotionAction(
 // --- Main Chat Action Middleware ---
 export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res, next) => {
     if (req.method !== 'POST' || req.url !== '/api/chat-action') {
-        return next();
+        return next(); // Pass to next middleware if not a POST to /api/chat-action
     }
 
     let requestBody: ChatActionRequestBody;
     let clients: { notion: NotionClient, model: GenerativeModel };
     let dbSchema: NotionDatabaseSchema;
-    let llmIntentIdentificationResponse: LlmResponse; // Renamed for clarity
+    // Correctly initializing llmIntentIdentificationResponse to null
+    let llmIntentIdentificationResponse: LlmResponse | null = null; 
 
     try {
-        // Type assertion for req and res
         const httpRequest = req as IncomingMessage;
         const httpResponse = res as ServerResponse;
 
@@ -857,7 +1087,6 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
         if (requestBody.userTimezone) {
             timeZone = requestBody.userTimezone;
         } else {
-            // Fallback to basic detection if userTimezone is not sent by client (less reliable)
             console.warn("User timezone not provided by client, falling back to basic detection.");
             timeZone = requestBody.userMessage.toLowerCase().includes('kst') ? 'Asia/Seoul' : 'America/New_York';
         }
@@ -883,25 +1112,25 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
             singleLlmResponseObject = parsedLlmJson as LlmResponse;
         } else {
             console.error("LLM response is not a JSON object or a JSON array:", parsedLlmJson);
-            throw { statusCode: 500, message: 'LLM returned an unexpected response format (not an object or array).', details: parsedLlmJson };
+            throw { statusCode: 500, message: 'LLM returned an unexpected response format (not an object or array)..', details: parsedLlmJson };
         }
 
         llmIntentIdentificationResponse = validateLlmResponse(singleLlmResponseObject);
 
         const actionResult = await executeNotionAction(
             clients.notion,
-            clients.model, // Pass the LLM model for potential use in actions like SUMMARIZE
+            clients.model, 
             llmIntentIdentificationResponse,
             requestBody.databaseId,
             dbSchema
         );
 
         httpResponse.writeHead(actionResult.statusCode, { 'Content-Type': 'application/json' });
-        // Include 'data' in the response if present (for QUERY actions)
         const responsePayload: any = { 
             success: actionResult.success, 
             message: actionResult.message,
-            intent: llmIntentIdentificationResponse.intent // Pass through the determined intent
+            intent: llmIntentIdentificationResponse.intent, 
+            rawLlMResponse: llmIntentIdentificationResponse 
         };
         if (actionResult.details) {
             responsePayload.details = actionResult.details;
@@ -913,14 +1142,13 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
 
     } catch (error: any) {
         console.error("Error processing chat action request:", error);
-         // Type assertion for res
         const httpResponse = res as ServerResponse;
         if (!httpResponse.headersSent) {
             const statusCode = error.statusCode || 500;
             const message = error.message || 'Internal server error';
             const details = error.details;
             httpResponse.writeHead(statusCode, { 'Content-Type': 'application/json' });
-            httpResponse.end(JSON.stringify({ error: message, details }));
+            httpResponse.end(JSON.stringify({ error: message, details, rawLlMResponse: error.rawLlMResponse || llmIntentIdentificationResponse || undefined })); 
         }
     }
 }; 
