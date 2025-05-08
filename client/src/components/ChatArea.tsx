@@ -6,7 +6,7 @@ import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 // ChatMessage might not be needed if chatHistory is removed, but keep for now if Message uses it indirectly
 // import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp, ExternalLink, ChevronRight } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp, ExternalLink, ChevronRight
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare
 import { useToast } from "@/hooks/use-toast";
 import { DBRecordManager } from "./DBRecordManager";
 import { DBStructure } from "./DBStructure"; // Import DBStructure
@@ -84,6 +84,7 @@ export function ChatArea() {
   const [showDbStructure, setShowDbStructure] = useState<boolean>(false); // State to toggle DB structure visibility - Default to hidden
   // Removed pendingAction state
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null); // Added AbortController ref
 
   // Keep isProcessing state, but rename the setter if needed (or keep if context provides it)
   const [isLoading, setIsLoading] = useState(false); // Local loading state for fetch
@@ -120,7 +121,7 @@ export function ChatArea() {
     // Use local isLoading state, remove pendingAction check
     // Use correct variable name notionDbId
     // Add checks for llmApiKey and llmProvider
-    if (!input.trim() || isLoading || !notionApiKey || !notionDbId || !llmApiKey || !llmProvider) {
+    if (!input.trim() || !notionApiKey || !notionDbId || !llmApiKey || !llmProvider) { // Removed isLoading from this check
         toast({ // Inform user if required config is missing
             title: "Missing Configuration",
             description: "Please ensure Notion API Key, Database ID, LLM Provider, and LLM API Key are set in Settings.",
@@ -141,6 +142,8 @@ export function ChatArea() {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true); // Start loading
+
+    abortControllerRef.current = new AbortController(); // Create a new AbortController
 
     const thinkingMessageId = "thinking-message";
     const thinkingMessage: Message = {
@@ -174,6 +177,7 @@ export function ChatArea() {
           // but for now, just send the current message as per simplified goal.
           // chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
         }),
+        signal: abortControllerRef.current.signal, // Pass the signal to fetch
       });
 
       if (!response.ok) {
@@ -274,37 +278,56 @@ export function ChatArea() {
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
-      console.error("Error calling backend chat action:", error);
-      toast({
-        title: t("error-occurred"),
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-      setMessages(prev => {
-        const newMessages = [...prev];
-        const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
-        if (thinkingMsgIndex !== -1) {
-          newMessages[thinkingMsgIndex] = {
-            ...newMessages[thinkingMsgIndex],
-            id: Date.now().toString(),
-            content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`,
-            timestamp: new Date().toISOString()
-          };
-          return newMessages;
-        }
-        // Fallback if thinking message was somehow removed
-        return [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`, // Show specific error
-            timestamp: new Date().toISOString()
+      if (error.name === 'AbortError') {
+        console.log("Fetch aborted by user.");
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessageId)); // Remove thinking message
+        // Optionally add a message indicating the stop, or just silently stop
+        toast({
+            title: "Request Cancelled",
+            description: "The request was cancelled by the user.",
+        });
+      } else {
+        console.error("Error calling backend chat action:", error);
+        toast({
+          title: t("error-occurred"),
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const thinkingMsgIndex = newMessages.findIndex(m => m.id === thinkingMessageId);
+          if (thinkingMsgIndex !== -1) {
+            newMessages[thinkingMsgIndex] = {
+              ...newMessages[thinkingMsgIndex],
+              id: Date.now().toString(),
+              content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`,
+              timestamp: new Date().toISOString()
+            };
+            return newMessages;
           }
-        ];
-      });
+          // Fallback if thinking message was somehow removed
+          return [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: `${t("error-message")}: ${error instanceof Error ? error.message : String(error)}`, // Show specific error
+              timestamp: new Date().toISOString()
+            }
+          ];
+        });
+      }
     } finally {
        setIsLoading(false); // Stop loading regardless of outcome
+       abortControllerRef.current = null; // Clear the AbortController
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      // setIsLoading(false); // isLoading will be set to false in the finally block of handleSubmit
+      // No need to remove thinking message here, it's handled in the catch block of handleSubmit
     }
   };
 
@@ -541,12 +564,16 @@ export function ChatArea() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t("chat-placeholder")}
-              disabled={isLoading} // Use local isLoading state
+              disabled={isLoading} // Input remains disabled during loading
               className="flex-1"
             />
-            <Button type="submit" disabled={isLoading || !input.trim()}> {/* Use local isLoading state */}
-              {isLoading ? ( // Use local isLoading state
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <Button 
+              type={isLoading ? "button" : "submit"} 
+              onClick={isLoading ? handleStop : undefined}
+              disabled={!isLoading && !input.trim()} // Disabled if not loading AND input is empty
+            >
+              {isLoading ? (
+                <XSquare className="h-4 w-4" /> // Stop icon
               ) : (
                 <Send className="h-4 w-4" />
               )}
