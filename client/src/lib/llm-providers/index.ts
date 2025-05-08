@@ -36,9 +36,9 @@ export const availableModels = {
     { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" }
   ],
   gemini: [
-    { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash" },
-    { value: "gemini-1.5-pro-latest", label: "Gemini 1.5 Pro" },
-    { value: "gemini-pro", label: "Gemini Pro" }
+    { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash Preview" },
+    { value: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro Preview" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" }
   ],
   openrouter: [
     { value: "openrouter/auto", label: "Default (OpenRouter Auto-Select)" },
