@@ -4,9 +4,10 @@ import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, Loader2, RefreshCw } from "lucide-react";
+import { Search, Plus, Loader2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -353,7 +354,12 @@ export function DBRecordManager() {
                         } else if (value.multi_select) {
                           displayValue = value.multi_select.map((s: any) => s.name).join(", ");
                         } else if (value.date) {
-                          displayValue = value.date.start;
+                          try {
+                            displayValue = format(new Date(value.date.start), 'yyyy-MM-dd HH:mm');
+                          } catch (e) {
+                            console.error("Error formatting date:", e, value.date.start);
+                            displayValue = value.date.start; // Fallback to original if formatting fails
+                          }
                         }
                         
                         if (displayValue) {
@@ -369,7 +375,7 @@ export function DBRecordManager() {
                   </div>
                 </div>
                 
-                <div className="flex space-x-2">
+                {/* <div className="flex space-x-2">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -386,7 +392,7 @@ export function DBRecordManager() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
