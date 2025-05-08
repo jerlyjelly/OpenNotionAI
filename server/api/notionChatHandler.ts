@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import dotenv from 'dotenv';
 import { defaultModels, LLMProvider as ClientLLMProvider } from '../../client/src/lib/llm-providers/index'; // Adjusted path
 import OpenAI from "openai";
+import Anthropic from '@anthropic-ai/sdk'; // Added Anthropic SDK import
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Connect } from 'vite';
 
@@ -85,22 +86,79 @@ class OpenAIAdapter implements ServerLLMInterface {
 
 // Placeholder for Anthropic Adapter
 class AnthropicAdapter implements ServerLLMInterface {
+    private anthropic: Anthropic;
+    private modelName: string;
+    private maxTokens: number;
+
     constructor(apiKey: string, modelName: string) {
-        console.log(`Initializing AnthropicAdapter with model: ${modelName}. API Key: ${apiKey ? 'provided' : 'missing'}`);
-        // IMPORTANT: Actual Anthropic SDK integration would go here.
-        // const Anthropic = require('@anthropic-ai/sdk');
-        // this.anthropic = new Anthropic({ apiKey });
-        // this.modelName = modelName;
+        if (!apiKey) {
+            throw { statusCode: 400, message: "Anthropic API key is missing." };
+        }
+        this.anthropic = new Anthropic({ apiKey });
+        this.modelName = modelName;
+        this.maxTokens = 4096; // Set a reasonable default for max_tokens
+        console.log(`Initializing AnthropicAdapter with model: ${this.modelName}. API Key: provided.`);
     }
+
     async generateJsonContent(prompt: string): Promise<any> {
-        console.warn("AnthropicAdapter: generateJsonContent is a placeholder and not implemented.");
-        // Actual implementation would call Anthropic API and parse JSON
-        throw { statusCode: 501, message: "Anthropic provider not fully implemented for JSON content generation." };
+        console.log(`AnthropicAdapter: generateJsonContent called for model '${this.modelName}'.`);
+        try {
+            const response = await this.anthropic.messages.create({
+                model: this.modelName,
+                max_tokens: this.maxTokens,
+                system: "You are a helpful assistant. Your response MUST be a single, valid JSON object. Do not include any text outside of the JSON object itself. Adhere strictly to the JSON format requested by the user.",
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            if (!response.content || response.content.length === 0 || response.content[0].type !== 'text') {
+                console.error(`Anthropic (JSON) for model '${this.modelName}' returned no text content or unexpected structure:`, response);
+                throw new Error("Empty or invalid content structure from Anthropic");
+            }
+            const responseText = response.content[0].text;
+            // Attempt to extract JSON from potentially wrapped text
+            // Claude might sometimes wrap JSON in ```json ... ``` or just output it directly.
+            const jsonMatch = responseText.match(/```json\\n([\s\S]*?)\\n```|({[\s\S]*})/);
+            let parsableText = responseText;
+            if (jsonMatch) {
+                parsableText = jsonMatch[1] || jsonMatch[2]; // Use the first capturing group that matched
+            }
+
+            return JSON.parse(parsableText);
+        } catch (error: any) {
+            console.error(`Error calling Anthropic (JSON) for model '${this.modelName}':`, error);
+            const errorMessage = error.message || "Unknown Anthropic API error";
+            // Try to get more details if it's an Anthropic APIError
+            let statusCode = 500;
+            if (error instanceof Anthropic.APIError) {
+                statusCode = error.status || 500;
+            }
+            throw { statusCode: statusCode, message: `Anthropic API error (JSON) for model '${this.modelName}': ${errorMessage}`, details: error.error || error };
+        }
     }
+
     async generateTextContent(prompt: string): Promise<string> {
-        console.warn("AnthropicAdapter: generateTextContent is a placeholder and not implemented.");
-        // Actual implementation would call Anthropic API
-        throw { statusCode: 501, message: "Anthropic provider not fully implemented for text content generation." };
+        console.log(`AnthropicAdapter: generateTextContent called for model '${this.modelName}'.`);
+        try {
+            const response = await this.anthropic.messages.create({
+                model: this.modelName,
+                max_tokens: this.maxTokens,
+                messages: [{ role: "user", content: prompt }],
+            });
+
+            if (!response.content || response.content.length === 0 || response.content[0].type !== 'text') {
+                console.error(`Anthropic (Text) for model '${this.modelName}' returned no text content or unexpected structure:`, response);
+                throw new Error("Empty or invalid content structure from Anthropic");
+            }
+            return response.content[0].text;
+        } catch (error: any) {
+            console.error(`Error calling Anthropic (Text) for model '${this.modelName}':`, error);
+            const errorMessage = error.message || "Unknown Anthropic API error";
+            let statusCode = 500;
+            if (error instanceof Anthropic.APIError) {
+                statusCode = error.status || 500;
+            }
+            throw { statusCode: statusCode, message: `Anthropic API error (Text) for model '${this.modelName}': ${errorMessage}`, details: error.error || error };
+        }
     }
 }
 
@@ -462,7 +520,7 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
           "discussionId": null
         }
 
-        Ensure the property values in the "properties" object (for CREATE/UPDATE/APPEND) strictly adhere to the Notion API format required for each property type defined in the schema. For example:
+        Ensure the property values in the "properties" object (for CUD+A) or filters/sorts (for QUERY) correctly adhere to the Notion API format required for each property type defined in the schema. For example:
         - title: { "title": [{ "text": { "content": "Value" } }] }
         - rich_text: { "rich_text": [{ "text": { "content": "Value" } }] }
         - number: { "number": 123 }

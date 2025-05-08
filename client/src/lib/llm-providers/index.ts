@@ -18,7 +18,7 @@ export interface LLMInterface {
 // Model defaults for each provider
 export const defaultModels = {
   openai: "gpt-4o",
-  anthropic: "claude-3-5-sonnet-20240620",
+  anthropic: "claude-3-7-sonnet-20250219",
   gemini: "gemini-2.5-flash-preview-04-17",
   openrouter: "openrouter/auto"
 }
@@ -31,10 +31,9 @@ export const availableModels = {
     { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
   ],
   anthropic: [
-    { value: "claude-3-5-sonnet-20240620", label: "Claude 3.5 Sonnet" },
-    { value: "claude-3-opus-20240229", label: "Claude 3 Opus" },
-    { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
-    { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" }
+    { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
+    { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+    { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" }
   ],
   gemini: [
     { value: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash" },
