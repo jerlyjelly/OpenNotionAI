@@ -26,7 +26,7 @@ interface ChatActionRequestBody {
 interface LlmResponse {
     intent: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY' | 'SUMMARIZE';
     identifier?: string | null;
-    properties?: Record<string, any>; // Properties are not needed for QUERY or SUMMARIZE
+    properties?: Record<string, any> | Array<Record<string, any>>; // For CREATE (array), UPDATE/APPEND (single object). Null for QUERY/DELETE/SUMMARIZE.
     filter?: Record<string, any>;    // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
     sorts?: any[];                   // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
     targetType?: 'PAGE' | 'DATABASE_QUERY'; // Specifically for SUMMARIZE intent
@@ -94,9 +94,12 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
 
         Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, APPEND, QUERY, or SUMMARIZE) and extract the necessary information.
 
-        - If the intent is CREATE, UPDATE, DELETE, or APPEND, extract the properties.
+        - If the intent is CREATE:
+          - If the user asks to create multiple items (e.g., "Create tasks: 1. Task A. 2. Task B."), "properties" MUST be an array of property objects, one for each item.
+          - Otherwise, "properties" should be a single property object.
+        - If the intent is UPDATE or APPEND, extract the properties as a single object.
         - If the intent is UPDATE, DELETE, or APPEND, also identify the unique text identifier (likely the value of the primary 'title' property).
-        - For APPEND intent, the 'properties' should contain a "content" field with a plain text string where each line represents a bulleted list item, or an array of Notion block-like objects for bulleted list items.
+        - For APPEND intent, the 'properties' (a single object) should contain a "content" field with a plain text string where each line represents a bulleted list item, or an array of Notion block-like objects for bulleted list items.
         - If the intent is QUERY, determine the appropriate 'filter' and 'sorts' objects based on the user's question and the database schema. The 'filter' and 'sorts' must follow the Notion API specification for database queries.
         - If the intent is SUMMARIZE, determine if the user wants to summarize a specific page by its title or pages resulting from a database query.
           - If summarizing a specific page by title: set "targetType": "PAGE" and "identifier": "Page Title".
@@ -109,10 +112,30 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
         {
           "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND" | "QUERY" | "SUMMARIZE",
           "identifier": "Unique text identifier for UPDATE/DELETE/APPEND, or Page Title for SUMMARIZE (targetType: PAGE). Null otherwise.",
-          "properties": { /* PropertyName: { type: "value", ... } for CREATE/UPDATE/APPEND. Null for QUERY/SUMMARIZE. */ },
+          "properties": [ { /* PropertyName: { type: "value", ... } */ } ] /* For CREATE with multiple items. */
+                      /* OR { PropertyName: { type: "value", ... } } /* For CREATE (single item), UPDATE, APPEND. Null for QUERY/DELETE/SUMMARIZE. */,
           "filter": { /* Notion API filter object for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ },
           "sorts": [ /* Notion API sorts array for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ ],
           "targetType": "PAGE" | "DATABASE_QUERY" /* Only for SUMMARIZE intent. Null otherwise. */
+        }
+
+        Example for CREATE intent for "Create these tasks: 1. Call supplier A. 2. Email invoice to client B, due today.":
+        (Assuming 'Task Name' is title, 'Due Date' is date. Current time is 2024-07-29T...)
+        {
+          "intent": "CREATE",
+          "identifier": null,
+          "properties": [
+            {
+              "Task Name": { "title": [{ "text": { "content": "Call supplier A" } }] }
+            },
+            {
+              "Task Name": { "title": [{ "text": { "content": "Email invoice to client B" } }] },
+              "Due Date": { "date": { "start": "2024-07-29" } }
+            }
+          ],
+          "filter": null,
+          "sorts": null,
+          "targetType": null
         }
 
         Example for QUERY intent for "What are my tasks due today?":
@@ -197,7 +220,7 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
       `;
 }
 
-async function callLlm(model: GenerativeModel, prompt: string): Promise<LlmResponse> {
+async function callLlm(model: GenerativeModel, prompt: string): Promise<any> {
     try {
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -206,9 +229,16 @@ async function callLlm(model: GenerativeModel, prompt: string): Promise<LlmRespo
             },
         });
         const responseText = result.response.text();
-        return JSON.parse(responseText) as LlmResponse;
+        if (!responseText) {
+            console.error("LLM returned an empty response text.");
+            throw { statusCode: 500, message: "LLM returned an empty response." };
+        }
+        return JSON.parse(responseText);
     } catch (error: any) {
-        console.error("Error calling LLM:", error);
+        console.error("Error calling LLM or parsing its response:", error);
+        if (error instanceof SyntaxError || (error.message && error.message.toLowerCase().includes('json'))) {
+             throw { statusCode: 500, message: `Failed to parse LLM response as JSON: ${error.message}`, details: error };
+        }
         throw { statusCode: 500, message: `Failed to get response from LLM: ${error.message || error}` };
     }
 }
@@ -222,10 +252,24 @@ function validateLlmResponse(llmResponse: any): LlmResponse {
         throw { statusCode: 500, message: 'Received invalid intent from LLM.', details: llmResponse };
     }
 
-    if (intent === 'CREATE' || intent === 'UPDATE' || intent === 'APPEND') {
+    if (intent === 'CREATE') {
         if (!llmProperties) {
-            console.error(`LLM intent was ${intent} but no properties provided:`, llmResponse);
-            throw { statusCode: 400, message: `LLM indicated ${intent} but did not provide properties.`, details: llmResponse };
+            console.error(`LLM intent was CREATE but no properties provided:`, llmResponse);
+            throw { statusCode: 400, message: `LLM indicated CREATE but did not provide properties.`, details: llmResponse };
+        }
+        // For CREATE, properties can be a single object or an array of objects
+        if (!Array.isArray(llmProperties) && typeof llmProperties !== 'object') {
+            console.error(`LLM intent was CREATE but properties is not an object or array:`, llmResponse);
+            throw { statusCode: 400, message: `LLM indicated CREATE but properties format is invalid.`, details: llmResponse };
+        }
+        if (Array.isArray(llmProperties) && llmProperties.some(p => typeof p !== 'object' || p === null)) {
+            console.error(`LLM intent was CREATE but properties array contains non-object elements:`, llmResponse);
+            throw { statusCode: 400, message: `LLM indicated CREATE but properties array has invalid items.`, details: llmResponse };
+        }
+    } else if (intent === 'UPDATE' || intent === 'APPEND') {
+        if (!llmProperties || typeof llmProperties !== 'object' || Array.isArray(llmProperties)) {
+            console.error(`LLM intent was ${intent} but properties is not a single object or is missing:`, llmResponse);
+            throw { statusCode: 400, message: `LLM indicated ${intent} but did not provide a valid single properties object.`, details: llmResponse };
         }
     }
 
@@ -299,26 +343,65 @@ async function findPageId(notion: NotionClient, databaseId: string, titlePropert
 }
 
 async function handleCreateAction(
-    notion: NotionClient, 
-    databaseId: string, 
-    llmProperties: LlmResponse['properties']
+    notion: NotionClient,
+    databaseId: string,
+    llmPropertiesArray: Array<Record<string, any>> // Expect an array for multiple creations
 ): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
-    if (!llmProperties) { // Should be caught by validation, but good to be defensive
-        throw { statusCode: 400, message: 'Properties missing for CREATE operation.' };
+    if (!Array.isArray(llmPropertiesArray) || llmPropertiesArray.length === 0) {
+        throw { statusCode: 400, message: 'Properties missing or empty for CREATE operation.' };
     }
-    const page = await notion.pages.create({
-        parent: { database_id: databaseId },
-        properties: llmProperties, 
-    });
-    return { 
-        success: true, 
-        message: 'Successfully created new record.', 
-        statusCode: 201,
-        data: {
-            id: page.id,
-            url: (page as any).url, // Type assertion for url if not directly on type
-            properties: (page as any).properties // Type assertion for properties
+
+    const createdPagesData = [];
+    let successfulCreations = 0;
+    let failedCreations = 0;
+
+    for (const properties of llmPropertiesArray) {
+        try {
+            const page = await notion.pages.create({
+                parent: { database_id: databaseId },
+                properties: properties,
+            });
+            createdPagesData.push({
+                id: page.id,
+                url: (page as any).url, // Type assertion for url
+                properties: (page as any).properties // Type assertion for properties
+            });
+            successfulCreations++;
+        } catch (error: any) {
+            failedCreations++;
+            console.error("Error creating a page during multi-create:", error);
+            // Store partial failure information if needed, or decide to throw immediately
+            // For now, we'll collect successes and report failures in the message
         }
+    }
+
+    if (successfulCreations === 0 && failedCreations > 0) {
+         throw { statusCode: 500, message: `Failed to create all ${failedCreations} record(s).`, details: "See server logs for individual errors."};
+    }
+    
+    let message = `Successfully created ${successfulCreations} record(s).`;
+    if (failedCreations > 0) {
+        message += ` Failed to create ${failedCreations} record(s).`;
+    }
+
+    let responseDataObject: any;
+    // If only one item was successfully created AND there were no failures from other attempted items.
+    // This means the original request was likely for a single item, or multiple items where only one succeeded AND others failed.
+    // To restore the single card UI, we only return a single object if the *total attempts* resulted in *one success and zero failures*.
+    // We can infer total attempts from llmPropertiesArray.length which was the input to this function.
+    if (successfulCreations === 1 && failedCreations === 0 && llmPropertiesArray.length === 1) {
+        responseDataObject = createdPagesData[0]; // Single object for the classic single successful create
+    } else {
+        // For multiple successes, or if there were any failures alongside successes,
+        // or if one item succeeded but other items were also attempted and failed.
+        responseDataObject = createdPagesData; // Array of successfully created items
+    }
+
+    return {
+        success: true, // If we reach here, successfulCreations > 0
+        message: message,
+        statusCode: failedCreations > 0 ? 207 : 201, // 207 Multi-Status if there were failures, 201 if all requested succeeded
+        data: responseDataObject
     };
 }
 
@@ -333,13 +416,13 @@ async function handleDeleteAction(notion: NotionClient, databaseId: string, dbSc
 }
 
 async function handleUpdateAction(
-    notion: NotionClient, 
-    databaseId: string, 
-    dbSchema: NotionDatabaseSchema, 
-    identifier: string, 
-    llmProperties: LlmResponse['properties']
+    notion: NotionClient,
+    databaseId: string,
+    dbSchema: NotionDatabaseSchema,
+    identifier: string,
+    llmProperties: Record<string, any> // Expect a single object
 ): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
-    if (!llmProperties) { 
+    if (!llmProperties) {
         throw { statusCode: 400, message: 'Properties missing for UPDATE operation.' };
     }
     const titlePropertyName = findTitlePropertyName(dbSchema);
@@ -361,13 +444,13 @@ async function handleUpdateAction(
 }
 
 async function handleAppendAction(
-    notion: NotionClient, 
-    databaseId: string, 
-    dbSchema: NotionDatabaseSchema, 
-    identifier: string, 
-    llmProperties: LlmResponse['properties']
+    notion: NotionClient,
+    databaseId: string,
+    dbSchema: NotionDatabaseSchema,
+    identifier: string,
+    llmProperties: Record<string, any> // Expect a single object
 ): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
-    if (!llmProperties || !llmProperties.content) { 
+    if (!llmProperties || !llmProperties.content) {
         throw { statusCode: 400, message: 'Content property missing for APPEND operation.' };
     }
     const titlePropertyName = findTitlePropertyName(dbSchema);
@@ -706,19 +789,30 @@ async function executeNotionAction(
 
         switch (intent) {
             case 'CREATE':
-                if (!llmProperties) throw { statusCode: 400, message: 'Properties missing for CREATE operation.' };
-                return await handleCreateAction(notion, databaseId, llmProperties);
+                // llmProperties is validated to be an object or array for CREATE.
+                // If it's a single object, wrap it in an array for handleCreateAction.
+                const propertiesForCreate = Array.isArray(llmProperties) 
+                    ? llmProperties as Array<Record<string, any>> 
+                    : [llmProperties as Record<string, any>];
+                if (!propertiesForCreate || propertiesForCreate.length === 0 || propertiesForCreate.some(p => typeof p !== 'object' || p === null) ) {
+                    throw { statusCode: 400, message: 'Properties missing or invalid for CREATE operation.' };
+                }
+                return await handleCreateAction(notion, databaseId, propertiesForCreate);
             case 'DELETE':
                 if (!identifier) throw { statusCode: 400, message: 'Identifier missing for DELETE operation.' };
                 return await handleDeleteAction(notion, databaseId, dbSchema, identifier);
             case 'UPDATE':
                 if (!identifier) throw { statusCode: 400, message: 'Identifier missing for UPDATE operation.' };
-                if (!llmProperties) throw { statusCode: 400, message: 'Properties missing for UPDATE operation.' };
-                return await handleUpdateAction(notion, databaseId, dbSchema, identifier, llmProperties);
+                if (!llmProperties || typeof llmProperties !== 'object' || Array.isArray(llmProperties)) {
+                     throw { statusCode: 400, message: 'Properties missing or invalid for UPDATE operation (must be a single object).' };
+                }
+                return await handleUpdateAction(notion, databaseId, dbSchema, identifier, llmProperties as Record<string, any>);
             case 'APPEND':
                 if (!identifier) throw { statusCode: 400, message: 'Identifier missing for APPEND operation.' };
-                if (!llmProperties) throw { statusCode: 400, message: 'Properties (content) missing for APPEND operation.' };
-                return await handleAppendAction(notion, databaseId, dbSchema, identifier, llmProperties);
+                if (!llmProperties || typeof llmProperties !== 'object' || Array.isArray(llmProperties) || !(llmProperties as Record<string,any>).content) {
+                     throw { statusCode: 400, message: 'Properties (content) missing or invalid for APPEND operation (must be a single object with content).' };
+                }
+                return await handleAppendAction(notion, databaseId, dbSchema, identifier, llmProperties as Record<string, any>);
             case 'QUERY':
                 return await handleQueryAction(notion, databaseId, filter, sorts);
             case 'SUMMARIZE':
@@ -765,13 +859,34 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
         } else {
             // Fallback to basic detection if userTimezone is not sent by client (less reliable)
             console.warn("User timezone not provided by client, falling back to basic detection.");
-            timeZone = requestBody.userMessage.toLowerCase().includes('kst') ? 'Asia/Seoul' : 'America/New_York'; 
+            timeZone = requestBody.userMessage.toLowerCase().includes('kst') ? 'Asia/Seoul' : 'America/New_York';
         }
         const currentTime = formatInTimeZone(new Date(), timeZone, "yyyy-MM-dd'T'HH:mm:ssXXX");
 
         const prompt = constructLlmPrompt(requestBody.userMessage, currentTime, timeZone, dbSchema);
-        const rawLlmResponse = await callLlm(clients.model, prompt);
-        llmIntentIdentificationResponse = validateLlmResponse(rawLlmResponse);
+        const parsedLlmJson = await callLlm(clients.model, prompt);
+
+        let singleLlmResponseObject: LlmResponse;
+
+        if (Array.isArray(parsedLlmJson)) {
+            if (parsedLlmJson.length === 1 && typeof parsedLlmJson[0] === 'object' && parsedLlmJson[0] !== null) {
+                console.warn("LLM returned an array response; extracting the first element.", parsedLlmJson);
+                singleLlmResponseObject = parsedLlmJson[0] as LlmResponse;
+            } else if (parsedLlmJson.length === 0) {
+                 console.error("LLM returned an empty array:", parsedLlmJson);
+                 throw { statusCode: 500, message: 'LLM returned an empty array.', details: parsedLlmJson };
+            } else {
+                console.error("LLM returned an array with multiple unexpected objects or invalid content:", parsedLlmJson);
+                throw { statusCode: 500, message: 'LLM returned an array response not matching expected single object structure.', details: parsedLlmJson };
+            }
+        } else if (typeof parsedLlmJson === 'object' && parsedLlmJson !== null) {
+            singleLlmResponseObject = parsedLlmJson as LlmResponse;
+        } else {
+            console.error("LLM response is not a JSON object or a JSON array:", parsedLlmJson);
+            throw { statusCode: 500, message: 'LLM returned an unexpected response format (not an object or array).', details: parsedLlmJson };
+        }
+
+        llmIntentIdentificationResponse = validateLlmResponse(singleLlmResponseObject);
 
         const actionResult = await executeNotionAction(
             clients.notion,

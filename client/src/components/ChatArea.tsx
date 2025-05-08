@@ -229,21 +229,30 @@ export function ChatArea() {
           }
         } else if (result.intent === 'CREATE' || result.intent === 'UPDATE' || result.intent === 'APPEND') {
             // Generic message is already set as default
-            if (result.data && result.data.url) {
-                 let pageTitle = "View Item"; 
-                 if (result.data.properties) {
-                    const titleProp = Object.values(result.data.properties).find((prop: any) => prop.type === 'title') as any;
-                    if (titleProp && titleProp.title && Array.isArray(titleProp.title) && titleProp.title.length > 0) {
-                        if (titleProp.title[0].plain_text) {
-                            pageTitle = titleProp.title[0].plain_text;
-                        } else if (titleProp.title[0].text && titleProp.title[0].text.content) {
-                            pageTitle = titleProp.title[0].text.content;
+            if (result.data) {
+                const itemsToProcess = Array.isArray(result.data) ? result.data : [result.data];
+
+                itemsToProcess.forEach(item => {
+                    if (item && item.url) { // Each item must have a URL to be linked
+                        let pageTitle = getNotionPageTitle(item.properties); // Use the helper
+
+                        // For single UPDATE/APPEND, if title from properties is "Untitled",
+                        // and result.identifier exists (which it should for these intents), use it.
+                        if ((pageTitle === "Untitled" || !pageTitle) && 
+                            (result.intent === 'UPDATE' || result.intent === 'APPEND') && 
+                            result.identifier && 
+                            !Array.isArray(result.data)) {
+                            pageTitle = result.identifier;
                         }
+                        
+                        // If still no good title (e.g. "Untitled" from getNotionPageTitle or no title from identifier), provide a fallback
+                        if (pageTitle === "Untitled" || !pageTitle) {
+                            pageTitle = item.id ? `Item ${item.id.substring(0, 8)}...` : "View Item";
+                        }
+
+                        assistantDataLinks.push({ title: pageTitle, url: item.url });
                     }
-                 } else if (result.identifier) { 
-                    pageTitle = result.identifier;
-                 }
-                 assistantDataLinks.push({ title: pageTitle, url: result.data.url });
+                });
             }
         } else {
           // Default handling: generic message is already set
