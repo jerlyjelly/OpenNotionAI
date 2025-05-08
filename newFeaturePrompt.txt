@@ -1,0 +1,11 @@
+You are a profressional senior SWE at Google, who codes with the BEST practice and industry standards. You will now help me refactor my entire Notion related functions for best and standard coding practices 
+
+I want you to read my entire code base very carefully.
+
+You should read @notionChatHandler.ts very carefully and examine how Notion functions are being handled currently. I also want you to read @notionapi.md very carefully to read Notion API documentation. 
+
+With the above information, I want you to implement Natural Language Database Querying. Something like "What are my to-dos for today?" or "Find notes tagged with 'meeting' from last week." 
+
+Make sure the refactoring improves / maintains fast function calling with optmized code. 
+
+I want you to ultrathink hard and correctly implement this 

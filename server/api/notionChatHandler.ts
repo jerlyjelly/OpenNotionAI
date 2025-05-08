@@ -24,11 +24,12 @@ interface ChatActionRequestBody {
 }
 
 interface LlmResponse {
-    intent: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY';
+    intent: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPEND' | 'QUERY' | 'SUMMARIZE';
     identifier?: string | null;
-    properties?: Record<string, any>; // Properties are not needed for QUERY
-    filter?: Record<string, any>;    // For QUERY intent
-    sorts?: any[];                   // For QUERY intent
+    properties?: Record<string, any>; // Properties are not needed for QUERY or SUMMARIZE
+    filter?: Record<string, any>;    // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
+    sorts?: any[];                   // For QUERY intent or SUMMARIZE (DATABASE_QUERY target)
+    targetType?: 'PAGE' | 'DATABASE_QUERY'; // Specifically for SUMMARIZE intent
 }
 
 type NotionDatabaseSchema = DatabaseObjectResponse["properties"];
@@ -91,23 +92,27 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
         Notion Database Schema:
         ${JSON.stringify(dbSchema, null, 2)}
 
-        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, APPEND, or QUERY) and extract the necessary information.
+        Based on the user request, current time, and database schema, determine the user's intent (CREATE, UPDATE, DELETE, APPEND, QUERY, or SUMMARIZE) and extract the necessary information.
 
         - If the intent is CREATE, UPDATE, DELETE, or APPEND, extract the properties.
         - If the intent is UPDATE, DELETE, or APPEND, also identify the unique text identifier (likely the value of the primary 'title' property).
         - For APPEND intent, the 'properties' should contain a "content" field with a plain text string where each line represents a bulleted list item, or an array of Notion block-like objects for bulleted list items.
         - If the intent is QUERY, determine the appropriate 'filter' and 'sorts' objects based on the user's question and the database schema. The 'filter' and 'sorts' must follow the Notion API specification for database queries.
-          - Refer to Notion API documentation for filter conditions (e.g., text, number, date, select, multi_select, status, checkbox, etc.) and sort objects.
-          - Date conditions like "today", "yesterday", "last week", "next month" should be resolved relative to the "Current time".
-          - Pay close attention to property names and their types from the schema to construct correct filters.
+        - If the intent is SUMMARIZE, determine if the user wants to summarize a specific page by its title or pages resulting from a database query.
+          - If summarizing a specific page by title: set "targetType": "PAGE" and "identifier": "Page Title".
+          - If summarizing pages from a query: set "targetType": "DATABASE_QUERY" and provide "filter" and optional "sorts" objects, similar to the QUERY intent. "identifier" should be null.
+        - Refer to Notion API documentation for filter conditions (e.g., text, number, date, select, multi_select, status, checkbox, etc.) and sort objects.
+        - Date conditions like "today", "yesterday", "last week", "next month" should be resolved relative to the "Current time".
+        - Pay close attention to property names and their types from the schema to construct correct filters.
 
         Respond ONLY with a JSON object in the following format:
         {
-          "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND" | "QUERY",
-          "identifier": "Unique text identifier for UPDATE/DELETE/APPEND (null for CREATE/QUERY)",
-          "properties": { /* PropertyName: { type: "value", ... } for CREATE/UPDATE/APPEND (null for QUERY) */ },
-          "filter": { /* Notion API filter object for QUERY (null for other intents) */ },
-          "sorts": [ /* Notion API sorts array for QUERY (null for other intents) */ ]
+          "intent": "CREATE" | "UPDATE" | "DELETE" | "APPEND" | "QUERY" | "SUMMARIZE",
+          "identifier": "Unique text identifier for UPDATE/DELETE/APPEND, or Page Title for SUMMARIZE (targetType: PAGE). Null otherwise.",
+          "properties": { /* PropertyName: { type: "value", ... } for CREATE/UPDATE/APPEND. Null for QUERY/SUMMARIZE. */ },
+          "filter": { /* Notion API filter object for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ },
+          "sorts": [ /* Notion API sorts array for QUERY or SUMMARIZE (targetType: DATABASE_QUERY). Null otherwise. */ ],
+          "targetType": "PAGE" | "DATABASE_QUERY" /* Only for SUMMARIZE intent. Null otherwise. */
         }
 
         Example for QUERY intent for "What are my tasks due today?":
@@ -121,13 +126,13 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
               {
                 "property": "Due Date",
                 "date": {
-                  "equals": "${currentTime.split('T')[0]}" // Assuming currentTime is YYYY-MM-DDTHH:mm:ssZ
+                  "equals": "${currentTime.split('T')[0]}"
                 }
               },
               {
                 "property": "Status",
                 "select": {
-                  "does_not_equal": "Done" // Example: filter out completed tasks
+                  "does_not_equal": "Done"
                 }
               }
             ]
@@ -137,7 +142,34 @@ function constructLlmPrompt(userMessage: string, currentTime: string, timeZone: 
               "property": "Due Date",
               "direction": "ascending"
             }
-          ]
+          ],
+          "targetType": null
+        }
+
+        Example for SUMMARIZE (PAGE) intent for "Summarize the 'Q2 Research Findings' page.":
+        {
+          "intent": "SUMMARIZE",
+          "identifier": "Q2 Research Findings",
+          "properties": null,
+          "filter": null,
+          "sorts": null,
+          "targetType": "PAGE"
+        }
+
+        Example for SUMMARIZE (DATABASE_QUERY) intent for "Key takeaways from notes tagged 'strategy session'.":
+        (Assuming 'Tags' is a multi-select property in the current database)
+        {
+          "intent": "SUMMARIZE",
+          "identifier": null,
+          "properties": null,
+          "filter": {
+            "property": "Tags",
+            "multi_select": {
+              "contains": "strategy session"
+            }
+          },
+          "sorts": [{ "timestamp": "last_edited_time", "direction": "descending" }],
+          "targetType": "DATABASE_QUERY"
         }
 
         Ensure the property values in the "properties" object (for CREATE/UPDATE/APPEND) strictly adhere to the Notion API format required for each property type defined in the schema. For example:
@@ -183,9 +215,9 @@ async function callLlm(model: GenerativeModel, prompt: string): Promise<LlmRespo
 
 function validateLlmResponse(llmResponse: any): LlmResponse {
     console.log("LLM Raw Response:", JSON.stringify(llmResponse, null, 2));
-    const { intent, identifier, properties: llmProperties, filter, sorts } = llmResponse;
+    const { intent, identifier, properties: llmProperties, filter, sorts, targetType } = llmResponse;
 
-    if (!intent || !['CREATE', 'UPDATE', 'DELETE', 'APPEND', 'QUERY'].includes(intent)) {
+    if (!intent || !['CREATE', 'UPDATE', 'DELETE', 'APPEND', 'QUERY', 'SUMMARIZE'].includes(intent)) {
         console.error("Invalid LLM response structure: Missing or invalid intent.", llmResponse);
         throw { statusCode: 500, message: 'Received invalid intent from LLM.', details: llmResponse };
     }
@@ -205,15 +237,31 @@ function validateLlmResponse(llmResponse: any): LlmResponse {
     if (intent === 'QUERY') {
         // For QUERY, 'filter' is expected, 'sorts' is optional.
         // 'identifier' and 'properties' should ideally be null or not present.
-        if (!filter) { // A filter object is generally expected for a query.
+        if (!filter) { 
             console.warn("LLM intent was QUERY but no filter object provided. This might be acceptable for 'list all' type queries, but usually a filter is needed.", llmResponse);
-            // Depending on strictness, you could throw an error here or allow it.
-            // For now, we'll allow it but log a warning.
-            // throw { statusCode: 400, message: 'LLM indicated QUERY but did not provide a filter object.', details: llmResponse };
         }
         if (sorts && !Array.isArray(sorts)) {
             console.error("LLM intent was QUERY but 'sorts' is not an array:", llmResponse);
             throw { statusCode: 400, message: 'LLM indicated QUERY but provided an invalid sorts format (must be an array).', details: llmResponse };
+        }
+    }
+
+    if (intent === 'SUMMARIZE') {
+        if (!targetType || !['PAGE', 'DATABASE_QUERY'].includes(targetType)) {
+            console.error("LLM intent was SUMMARIZE but invalid or missing targetType.", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated SUMMARIZE but provided an invalid or missing targetType.', details: llmResponse };
+        }
+        if (targetType === 'PAGE' && !identifier) {
+            console.error("LLM intent was SUMMARIZE (PAGE) but no identifier (page title) provided.", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated SUMMARIZE for a page but did not provide a page identifier.', details: llmResponse };
+        }
+        if (targetType === 'DATABASE_QUERY' && !filter) {
+            console.warn("LLM intent was SUMMARIZE (DATABASE_QUERY) but no filter object provided. This might lead to summarizing the whole database.", llmResponse);
+            // Allow summarizing without filter, but it's a warning.
+        }
+         if (targetType === 'DATABASE_QUERY' && sorts && !Array.isArray(sorts)) {
+            console.error("LLM intent was SUMMARIZE (DATABASE_QUERY) but 'sorts' is not an array:", llmResponse);
+            throw { statusCode: 400, message: 'LLM indicated SUMMARIZE (DATABASE_QUERY) but provided an invalid sorts format (must be an array).', details: llmResponse };
         }
     }
 
@@ -450,9 +498,207 @@ async function handleQueryAction(
     }
 }
 
+// --- New helper functions for content extraction and summarization ---
+
+function extractRichTextToString(richTextArray: any[]): string {
+    if (!richTextArray || !Array.isArray(richTextArray)) return "";
+    return richTextArray.map(rt => rt.plain_text || "").join("");
+}
+
+function extractTextFromBlock(block: any): string {
+    let text = "";
+    const type = block.type;
+
+    if (block[type] && block[type].rich_text && Array.isArray(block[type].rich_text)) {
+        text = extractRichTextToString(block[type].rich_text);
+    } else {
+        switch (type) {
+            case 'child_page':
+                text = block.child_page?.title || "";
+                break;
+            case 'child_database':
+                text = block.child_database?.title || "";
+                break;
+            case 'bookmark':
+                text = block.bookmark?.caption ? extractRichTextToString(block.bookmark.caption) : (block.bookmark?.url || "");
+                break;
+            case 'code':
+                const codeContent = extractRichTextToString(block.code?.rich_text); // Code itself
+                const captionContent = block.code?.caption ? extractRichTextToString(block.code.caption) : "";
+                text = captionContent ? `${captionContent}\\n${codeContent}` : codeContent;
+                break;
+            case 'equation':
+                text = block.equation?.expression || "";
+                break;
+            case 'file':
+            case 'image':
+            case 'video':
+            case 'pdf':
+            case 'embed': // Assuming these types might have captions
+                 text = block[type]?.caption ? extractRichTextToString(block[type].caption) : (block[type]?.name || block[type]?.external?.url || block[type]?.url || "");
+                break;
+            case 'link_to_page':
+                text = `[Link to another page/database]`; // Content not directly available
+                break;
+            case 'table_row':
+                if (block.table_row && block.table_row.cells) {
+                    text = block.table_row.cells.map((cell: any[]) => extractRichTextToString(cell)).join("\\t|\\t"); // Join cells with tab-like separator
+                }
+                break;
+            case 'unsupported':
+                text = "[Unsupported block type]";
+                break;
+            // Blocks like 'column_list', 'column', 'divider', 'table_of_contents', 'synced_block' (complex original/synced logic)
+            // 'template', 'breadcrumb' usually don't have direct text or are handled by children recursion.
+            // Default handles common types with rich_text: paragraph, headings, lists, to_do, toggle, quote, callout.
+        }
+    }
+    return text.trim() ? text.trim() + "\\n" : ""; // Add newline only if there's text and ensure it's treated as a literal newline
+}
+
+
+async function getAllBlockChildren(notion: NotionClient, blockId: string): Promise<any[]> {
+    const blocks: any[] = [];
+    let cursor: string | undefined = undefined;
+    try {
+        while (true) {
+            const response = await notion.blocks.children.list({
+                block_id: blockId,
+                start_cursor: cursor,
+                page_size: 100, // Max supported page size
+            });
+            blocks.push(...(response.results as any[])); // Cast results to any[]
+            if (!response.next_cursor) {
+                break;
+            }
+            cursor = response.next_cursor;
+        }
+    } catch (error: any) {
+        console.error(`Error fetching block children for ${blockId}:`, error);
+        throw { statusCode: 500, message: `Failed to fetch block children: ${error.message || error}` };
+    }
+    return blocks;
+}
+
+async function retrievePageContentAsTextRecursive(notion: NotionClient, blockId: string): Promise<string> {
+    let content = "";
+    const children = await getAllBlockChildren(notion, blockId);
+
+    for (const block of children) {
+        content += extractTextFromBlock(block);
+
+        if (block.has_children) {
+            // Avoid recursing into linked pages/databases or complex synced blocks directly for summarization context
+            if (block.type !== 'child_page' && 
+                block.type !== 'child_database' &&
+                !(block.type === 'synced_block' && block.synced_block?.synced_from !== null)
+            ) {
+                content += await retrievePageContentAsTextRecursive(notion, block.id);
+            }
+        }
+    }
+    return content;
+}
+
+// --- Handler for SUMMARIZE intent ---
+async function handleSummarizeAction(
+    notion: NotionClient,
+    llmModel: GenerativeModel,
+    databaseId: string, // Contextual database ID from the original request
+    dbSchema: NotionDatabaseSchema, // Schema of that contextual database
+    llmIntentResponse: LlmResponse // The validated response from the first LLM call
+): Promise<{ success: boolean, message: string, data?: any, statusCode: number }> {
+    let pagesToFetchContentFrom: Array<{ id: string, title?: string }> = [];
+    const { targetType, identifier, filter, sorts } = llmIntentResponse;
+
+    try {
+        if (targetType === 'PAGE') {
+            if (!identifier) { // Should be caught by validation, but defensive
+                throw { statusCode: 400, message: 'Page identifier missing for SUMMARIZE (PAGE) action.' };
+            }
+            const titlePropertyName = findTitlePropertyName(dbSchema); // Assumes page is in current DB context
+            const pageId = await findPageId(notion, databaseId, titlePropertyName, identifier);
+            pagesToFetchContentFrom.push({ id: pageId, title: identifier });
+        } else if (targetType === 'DATABASE_QUERY') {
+            // Use handleQueryAction to get page results. It returns a list of simplified page objects.
+            const queryResult = await handleQueryAction(notion, databaseId, filter, sorts);
+            if (queryResult.success && queryResult.data && Array.isArray(queryResult.data)) {
+                queryResult.data.forEach((page: any) => {
+                    // Attempt to get a title for context, fallback to ID
+                    let pageTitle = page.id;
+                    const titlePropName = findTitlePropertyName(dbSchema); // This relies on dbSchema passed in being for the queried DB
+                    if (page.properties && page.properties[titlePropName] && page.properties[titlePropName].title && page.properties[titlePropName].title[0]) {
+                        pageTitle = page.properties[titlePropName].title[0].plain_text;
+                    }
+                    pagesToFetchContentFrom.push({ id: page.id, title: pageTitle });
+                });
+            }
+            if (pagesToFetchContentFrom.length === 0) {
+                return { success: true, message: 'No pages found matching your criteria to summarize.', statusCode: 200, data: { summary: "No content found." } };
+            }
+        } else {
+            throw { statusCode: 400, message: `Invalid targetType '${targetType}' for SUMMARIZE action.` };
+        }
+
+        if (pagesToFetchContentFrom.length === 0) {
+            return { success: true, message: 'No specific page or pages found to summarize.', statusCode: 200, data: { summary: "No content found." } };
+        }
+
+        let combinedText = "";
+        for (const page of pagesToFetchContentFrom) {
+            const pageContent = await retrievePageContentAsTextRecursive(notion, page.id);
+            if (pageContent.trim()) {
+                 combinedText += `Content from page titled "${page.title || page.id}":\\n${pageContent}\\n\\n---\\n\\n`;
+            } else {
+                 combinedText += `Page titled "${page.title || page.id}" had no extractable content.\\n\\n---\\n\\n`;
+            }
+        }
+
+        if (!combinedText.trim()) {
+            return { success: true, message: 'Extracted content was empty. Nothing to summarize.', statusCode: 200, data: { summary: "No textual content found to summarize." } };
+        }
+        
+        // Limit combinedText to avoid exceeding LLM token limits (e.g., ~30k characters for ~8k tokens as a rough estimate)
+        // This is a very basic truncation. More sophisticated chunking would be needed for very large content.
+        const MAX_CONTENT_LENGTH = 30000; 
+        if (combinedText.length > MAX_CONTENT_LENGTH) {
+            console.warn(`Combined text for summarization is too long (${combinedText.length} chars). Truncating to ${MAX_CONTENT_LENGTH}.`);
+            combinedText = combinedText.substring(0, MAX_CONTENT_LENGTH) + "\\n... [Content Truncated] ...\\n";
+        }
+
+
+        const summarizationPrompt = `Please provide a concise summary of the following text extracted from Notion page(s):\\n\\n${combinedText}`;
+        
+        console.log("Summarization Prompt to LLM:", summarizationPrompt.substring(0, 500) + "..."); // Log start of prompt
+
+        const llmResult = await llmModel.generateContent({
+            contents: [{ role: "user", parts: [{ text: summarizationPrompt }] }],
+            // No specific responseMimeType needed if we expect plain text summary
+        });
+        const summary = llmResult.response.text();
+
+        return {
+            success: true,
+            message: `Successfully generated summary for ${pagesToFetchContentFrom.length} page(s).`,
+            data: { summary },
+            statusCode: 200
+        };
+
+    } catch (error: any) {
+        console.error("Error during SUMMARIZE operation:", error);
+        throw { // Re-throw with structure for main error handler
+            statusCode: error.statusCode || 500,
+            message: `Failed to summarize: ${error.message || 'Unknown error'}`,
+            details: error.details || error
+        };
+    }
+}
+
+
 async function executeNotionAction(
     notion: NotionClient,
-    llmResponse: LlmResponse, // Pass the full LlmResponse object
+    llmModel: GenerativeModel, // Added for SUMMARIZE intent
+    llmResponse: LlmResponse, 
     databaseId: string,
     dbSchema: NotionDatabaseSchema
 ): Promise<{ success: boolean, message: string, details?: any, data?: any, statusCode: number }> {    try {
@@ -474,8 +720,10 @@ async function executeNotionAction(
                 if (!llmProperties) throw { statusCode: 400, message: 'Properties (content) missing for APPEND operation.' };
                 return await handleAppendAction(notion, databaseId, dbSchema, identifier, llmProperties);
             case 'QUERY':
-                // Filter and sorts can be undefined if the LLM doesn't provide them (e.g., for a general "list all" type query, though our prompt encourages filters)
                 return await handleQueryAction(notion, databaseId, filter, sorts);
+            case 'SUMMARIZE':
+                // Ensure llmModel is passed to handleSummarizeAction
+                return await handleSummarizeAction(notion, llmModel, databaseId, dbSchema, llmResponse);
             default:
                 //This should ideally be caught by validateLlmResponse, but as a safeguard:
                 const exhaustiveCheck: never = intent;
@@ -500,7 +748,7 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
     let requestBody: ChatActionRequestBody;
     let clients: { notion: NotionClient, model: GenerativeModel };
     let dbSchema: NotionDatabaseSchema;
-    let llmResponse: LlmResponse;
+    let llmIntentIdentificationResponse: LlmResponse; // Renamed for clarity
 
     try {
         // Type assertion for req and res
@@ -523,19 +771,23 @@ export const chatActionMiddleware: Connect.NextHandleFunction = async (req, res,
 
         const prompt = constructLlmPrompt(requestBody.userMessage, currentTime, timeZone, dbSchema);
         const rawLlmResponse = await callLlm(clients.model, prompt);
-        llmResponse = validateLlmResponse(rawLlmResponse);
+        llmIntentIdentificationResponse = validateLlmResponse(rawLlmResponse);
 
-        // Pass the entire validated llmResponse to executeNotionAction
         const actionResult = await executeNotionAction(
             clients.notion,
-            llmResponse, // Pass the full object
+            clients.model, // Pass the LLM model for potential use in actions like SUMMARIZE
+            llmIntentIdentificationResponse,
             requestBody.databaseId,
             dbSchema
         );
 
         httpResponse.writeHead(actionResult.statusCode, { 'Content-Type': 'application/json' });
         // Include 'data' in the response if present (for QUERY actions)
-        const responsePayload: any = { success: actionResult.success, message: actionResult.message };
+        const responsePayload: any = { 
+            success: actionResult.success, 
+            message: actionResult.message,
+            intent: llmIntentIdentificationResponse.intent // Pass through the determined intent
+        };
         if (actionResult.details) {
             responsePayload.details = actionResult.details;
         }
