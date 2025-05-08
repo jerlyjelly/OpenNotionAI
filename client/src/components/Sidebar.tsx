@@ -34,9 +34,9 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
         
         {/* API Keys Section */}
         <div className="space-y-4">
-          {/* Notion API Key */}
+          {/* Notion Integration Secret */}
           <div className="space-y-2">
-            <Label htmlFor="notion-api">{t("notion-api-key")}</Label>
+            <Label htmlFor="notion-api">{t("notion-integration-secret")}</Label>
             <div className="relative">
               <Input
                 id="notion-api"
@@ -44,7 +44,7 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
                 value={notionApiKey}
                 onChange={(e) => setNotionApiKey(e.target.value)}
                 className="pr-10"
-                placeholder={t("enter-notion-api-key")}
+                placeholder={t("enter-notion-integration-secret")}
               />
               <Button
                 type="button"
@@ -60,7 +60,7 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
           
           {/* Notion DB Key */}
           <div className="space-y-2">
-            <Label htmlFor="notion-db">{t("notion-db-key")}</Label>
+            <Label htmlFor="notion-db">{t("notion-db-id")}</Label>
             <div className="relative">
               <Input
                 id="notion-db"
@@ -68,7 +68,7 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
                 value={notionDbId}
                 onChange={(e) => setNotionDbId(e.target.value)}
                 className="pr-10"
-                placeholder={t("enter-notion-db-key")}
+                placeholder={t("enter-notion-db-id")}
               />
               <Button
                 type="button"

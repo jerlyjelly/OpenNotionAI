@@ -6,7 +6,7 @@ export const en = {
   "feature-1": "Create and edit content in your Notion database",
   "feature-2": "Ask questions about your database content",
   "feature-3": "Generate new ideas and content based on your existing data",
-  "intro-3": "To get started, you'll need to provide your Notion API Key, Database ID, and an API key for your preferred language model.",
+  "intro-3": "To get started, you'll need to provide your Notion Integration Secret, Database ID, and an API key for your preferred language model.",
   "get-started": "Get Started",
   
   // Header
@@ -15,8 +15,8 @@ export const en = {
   // Sidebar
   "settings": "Settings",
   "settings-description": "Configure your Notion and LLM settings to get started.",
-  "notion-api-key": "Notion API Key",
-  "enter-notion-api-key": "Enter your Notion API key",
+  "notion-integration-secret": "Notion Integration Secret",
+  "enter-notion-integration-secret": "Enter your Notion Integration Secret",
   "notion-db-id": "Notion Database ID",
   "enter-notion-db-id": "Enter your Notion Database ID",
   "llm-provider": "LLM Provider",

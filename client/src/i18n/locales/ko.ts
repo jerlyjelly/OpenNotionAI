@@ -6,7 +6,7 @@ export const ko = {
   "feature-1": "Notion 데이터베이스에서 콘텐츠 생성 및 편집",
   "feature-2": "데이터베이스 콘텐츠에 대한 질문하기",
   "feature-3": "기존 데이터를 기반으로 새로운 아이디어와 콘텐츠 생성",
-  "intro-3": "시작하려면 Notion API 키, 데이터베이스 ID 및 선호하는 언어 모델의 API 키를 제공해야 합니다.",
+  "intro-3": "시작하려면 Notion Integration Secret, 데이터베이스 ID 및 선호하는 언어 모델의 API 키를 제공해야 합니다.",
   "get-started": "시작하기",
   
   // Header
@@ -14,28 +14,34 @@ export const ko = {
   
   // Sidebar
   "settings": "설정",
-  "notion-api-key": "Notion API 키",
-  "notion-db-key": "Notion 데이터베이스 ID",
+  "settings-description": "시작하려면 Notion 및 LLM 설정을 구성하세요.",
+  "notion-integration-secret": "Notion Integration Secret",
+  "enter-notion-integration-secret": "Notion Integration Secret을 입력하세요",
+  "notion-db-id": "Notion 데이터베이스 ID",
+  "enter-notion-db-id": "Notion 데이터베이스 ID를 입력하세요",
   "llm-provider": "LLM 제공업체",
-  "llm-api-key": "LLM API 키",
-  "enter-notion-api-key": "Notion API 키를 입력하세요",
-  "enter-notion-db-key": "Notion 데이터베이스 ID를 입력하세요",
-  "enter-llm-api-key": "LLM API 키를 입력하세요",
   "select-llm-provider": "LLM 제공업체 선택",
+  "llm-model": "LLM 모델",
+  "select-llm-model": "LLM 모델 선택",
+  "llm-api-key": "LLM API 키",
+  "enter-llm-api-key": "LLM API 키를 입력하세요",
   "connect": "연결",
-  "connecting": "연결 중...",
+  "disconnect": "연결 끊기",
   "connected": "연결됨",
-  "db-structure": "데이터베이스 구조",
+  "disconnected": "연결 끊김",
+  "connecting": "연결 중...",
+  "error-connecting": "연결 오류. 설정을 확인하세요.",
   
   // Chat Area
+  "chat": "채팅",
+  "database": "데이터베이스",
+  "chat-placeholder": "메시지를 입력하세요...",
+  "thinking-message-content": "생각 중...",
   "welcome": "Open Notion AI에 오신 것을 환영합니다",
   "start-description": "사이드바에 API 키를 입력하여 Notion 데이터베이스와 채팅을 시작하세요.",
   "keys-secure": "API 키는 로컬에 저장되며 서버로 전송되지 않습니다.",
-  "chat-placeholder": "메시지를 입력하세요...",
   "welcome-message": "안녕하세요! Notion 데이터베이스에 연결되었습니다. 어떻게 도와드릴까요?",
   "error-message": "죄송합니다. 요청을 처리하는 중에 오류가 발생했습니다. 다시 시도해 주세요.",
-  "chat": "채팅",
-  "database": "데이터베이스",
   "clear-chat": "채팅 지우기",
   "copy-to-clipboard": "클립보드에 복사",
   "export-conversation": "대화 내보내기",
@@ -58,5 +64,7 @@ export const ko = {
   "cancel": "취소",
   "create": "생성",
   "update": "업데이트",
-  "confirm-delete": "이 레코드를 삭제하시겠습니까?"
+  "confirm-delete": "이 레코드를 삭제하시겠습니까?",
+  "refresh-database": "데이터베이스 구조 및 레코드 새로 고침",
+  "error-loading-records": "레코드 로드 오류"
 };

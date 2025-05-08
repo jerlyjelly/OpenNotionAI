@@ -124,7 +124,7 @@ export function ChatArea() {
     if (!input.trim() || !notionApiKey || !notionDbId || !llmApiKey || !llmProvider) { // Removed isLoading from this check
         toast({ // Inform user if required config is missing
             title: "Missing Configuration",
-            description: "Please ensure Notion API Key, Database ID, LLM Provider, and LLM API Key are set in Settings.",
+            description: "Please ensure Notion Integration Secret, Database ID, LLM Provider, and LLM API Key are set in Settings.",
             variant: "destructive",
         });
         return;
