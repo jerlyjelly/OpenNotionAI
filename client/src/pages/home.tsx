@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatArea } from "@/components/ChatArea";
-import { OnboardingModal } from "@/components/OnboardingModal";
 import { useApiContext } from "@/context/ApiContext";
 
 export default function Home() {
@@ -23,8 +22,6 @@ export default function Home() {
         <Sidebar isCollapsed={isCollapsed} />
         <ChatArea />
       </div>
-      
-      <OnboardingModal />
     </div>
   );
 }

@@ -1,14 +1,4 @@
 export const ko = {
-  // Onboarding
-  "welcome-to-oss": "Open Notion AI에 오신 것을 환영합니다",
-  "intro-1": "이것은 다양한 언어 모델을 사용하여 Notion 데이터베이스와 상호 작용할 수 있는 Notion AI의 오픈 소스 대안입니다.",
-  "intro-2": "이 도구를 사용하면 다음을 수행할 수 있습니다:",
-  "feature-1": "Notion 데이터베이스에서 콘텐츠 생성 및 편집",
-  "feature-2": "데이터베이스 콘텐츠에 대한 질문하기",
-  "feature-3": "기존 데이터를 기반으로 새로운 아이디어와 콘텐츠 생성",
-  "intro-3": "시작하려면 Notion Integration Secret, 데이터베이스 ID 및 선호하는 언어 모델의 API 키를 제공해야 합니다.",
-  "get-started": "시작하기",
-  
   // Header
   "language": "언어",
   
@@ -66,5 +56,19 @@ export const ko = {
   "update": "업데이트",
   "confirm-delete": "이 레코드를 삭제하시겠습니까?",
   "refresh-database": "데이터베이스 구조 및 레코드 새로 고침",
-  "error-loading-records": "레코드 로드 오류"
+  "error-loading-records": "레코드 로드 오류",
+
+  // Notion Secret Guide Modal
+  "notion-secret-guide-title": "Notion 통합 비밀 키 가이드",
+  "notion-secret-guide-step1-prefix": "1. 다음으로 이동: ",
+  "notion-secret-guide-step2-prefix": "2. 다음 단계를 모두 따르십시오: ",
+  "notion-secret-guide-step2-actions": "Notion에서 통합 만들기, API 비밀 키 받기, 통합에 페이지 권한 부여",
+  "close-button": "닫기",
+
+  // Notion DB ID Guide Modal
+  "notion-db-id-guide-title": "Notion 데이터베이스 ID 가이드",
+  "notion-db-id-guide-step1": "1. DB를 전체 페이지로여세요",
+  "notion-db-id-guide-step2": "2. URL에서 처음 32자의 영숫자 문자열을 복사하십시오",
+  "notion-db-id-guide-step3-prefix": "3. 자세한 내용은 다음을 참조하십시오: ",
+  "notion-db-id-guide-step3-suffix": " "
 };

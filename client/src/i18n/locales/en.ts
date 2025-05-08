@@ -1,14 +1,4 @@
 export const en = {
-  // Onboarding
-  "welcome-to-oss": "Welcome to Open Notion AI",
-  "intro-1": "This is an open-source alternative to Notion AI that allows you to interact with your Notion databases using various language models.",
-  "intro-2": "With this tool, you can:",
-  "feature-1": "Create and edit content in your Notion database",
-  "feature-2": "Ask questions about your database content",
-  "feature-3": "Generate new ideas and content based on your existing data",
-  "intro-3": "To get started, you'll need to provide your Notion Integration Secret, Database ID, and an API key for your preferred language model.",
-  "get-started": "Get Started",
-  
   // Header
   "language": "Language",
   
@@ -64,5 +54,19 @@ export const en = {
   "update": "Update",
   "confirm-delete": "Are you sure you want to delete this record?",
   "refresh-database": "Refresh Database Structure & Records",
-  "error-loading-records": "Error loading records"
+  "error-loading-records": "Error loading records",
+
+  // Notion Secret Guide Modal
+  "notion-secret-guide-title": "Notion Integration Secret Guide",
+  "notion-secret-guide-step1-prefix": "1. Go to: ",
+  "notion-secret-guide-step2-prefix": "2. Make sure you follow all steps: ",
+  "notion-secret-guide-step2-actions": "Create your integration in Notion, Get your API secret, Give your integration page permissions",
+  "close-button": "Close",
+
+  // Notion DB ID Guide Modal
+  "notion-db-id-guide-title": "Notion Database ID Guide",
+  "notion-db-id-guide-step1": "1. Open your DB as a full page",
+  "notion-db-id-guide-step2": "2. Copy the first 32 characters alphanumeric string from the URL",
+  "notion-db-id-guide-step3-prefix": "3. See: ",
+  "notion-db-id-guide-step3-suffix": " for more detail"
 };

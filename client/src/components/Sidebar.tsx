@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Eye, EyeOff, PanelLeftClose, PanelRightOpen } from "lucide-react"; // Import new icons
+import { Loader2, Eye, EyeOff, PanelLeftClose, PanelRightOpen, Info } from "lucide-react"; // Import new icons and Info icon
 import { useTranslation } from "@/i18n"; // Keep useTranslation
 import { useApiContext } from "@/context/ApiContext";
 import { LLMProvider, availableModels } from "@/lib/llm-providers";
+import { InfoModal } from "@/components/InfoModal"; // Updated import
 
 
 export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
@@ -24,6 +25,47 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
   const [showNotionApiKey, setShowNotionApiKey] = useState(false);
   const [showNotionDbId, setShowNotionDbId] = useState(false);
   const [showLlmApiKey, setShowLlmApiKey] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false); // State for the info modal
+  const [isDbIdInfoModalOpen, setIsDbIdInfoModalOpen] = useState(false); // State for DB ID info modal
+
+  const notionSecretGuideContent = (
+    <div className="space-y-3 text-sm text-muted-foreground">
+      <p>
+        {t("notion-secret-guide-step1-prefix")}
+        <a
+          href="https://developers.notion.com/docs/create-a-notion-integration#getting-started"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          developers.notion.com/docs/create-a-notion-integration#getting-started
+        </a>
+      </p>
+      <p>
+        {t("notion-secret-guide-step2-prefix")}
+        <span className="block font-medium pt-1">{t("notion-secret-guide-step2-actions")}</span>
+      </p>
+    </div>
+  );
+
+  const notionDbIdGuideContent = (
+    <div className="space-y-3 text-sm text-muted-foreground">
+      <p>{t("notion-db-id-guide-step1")}</p>
+      <p>{t("notion-db-id-guide-step2")}</p>
+      <p>
+        {t("notion-db-id-guide-step3-prefix")}
+        <a
+          href="https://developers.notion.com/reference/retrieve-a-database"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          developers.notion.com/reference/retrieve-a-database
+        </a>
+        {t("notion-db-id-guide-step3-suffix")}
+      </p>
+    </div>
+  );
 
   return (
     <div className={`border-r flex flex-col h-full transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16' : 'w-80'}`}>
@@ -36,7 +78,12 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
         <div className="space-y-4">
           {/* Notion Integration Secret */}
           <div className="space-y-2">
-            <Label htmlFor="notion-api">{t("notion-integration-secret")}</Label>
+            <div className="flex items-center gap-1">
+              <Label htmlFor="notion-api">{t("notion-integration-secret")}</Label>
+              <Button variant="ghost" size="icon" onClick={() => setIsInfoModalOpen(true)} className="h-6 w-6 p-0">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
             <div className="relative">
               <Input
                 id="notion-api"
@@ -60,7 +107,12 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
           
           {/* Notion DB Key */}
           <div className="space-y-2">
-            <Label htmlFor="notion-db">{t("notion-db-id")}</Label>
+            <div className="flex items-center gap-1">
+              <Label htmlFor="notion-db">{t("notion-db-id")}</Label>
+              <Button variant="ghost" size="icon" onClick={() => setIsDbIdInfoModalOpen(true)} className="h-6 w-6 p-0">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
             <div className="relative">
               <Input
                 id="notion-db"
@@ -160,6 +212,21 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
         </div>
       </div>
 
+      <InfoModal
+        isOpen={isInfoModalOpen}
+        onOpenChange={setIsInfoModalOpen}
+        titleKey="notion-secret-guide-title"
+        content={notionSecretGuideContent}
+        buttonKey="close-button"
+      />
+
+      <InfoModal
+        isOpen={isDbIdInfoModalOpen}
+        onOpenChange={setIsDbIdInfoModalOpen}
+        titleKey="notion-db-id-guide-title"
+        content={notionDbIdGuideContent}
+        buttonKey="close-button"
+      />
     </div>
   );
 }
