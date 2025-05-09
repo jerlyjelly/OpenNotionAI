@@ -183,9 +183,6 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
                 <p className="text-sm text-red-500 mt-2 mb-2 text-center">{deleteError}</p>
             )}
             <DialogFooter className="mt-6 sm:justify-between">
-              <Button variant="outline" onClick={() => setShowConfirmDelete(false)} disabled={isDeleting}>
-                {t('common.cancel', { defaultValue: 'Cancel' })}
-              </Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteAccount}
@@ -196,13 +193,6 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
               </Button>
             </DialogFooter>
           </div>
-        )}
-        {!showConfirmDelete && (
-            <DialogFooter>
-                <Button variant="ghost" onClick={handleClose}>
-                {t('common.close', { defaultValue: 'Close' })}
-                </Button>
-            </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

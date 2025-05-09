@@ -27,11 +27,6 @@ export function InfoModal({
           <DialogTitle>{t(titleKey)}</DialogTitle>
         </DialogHeader>
         {content}
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} className="w-full">
-            {t(buttonKey)}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
