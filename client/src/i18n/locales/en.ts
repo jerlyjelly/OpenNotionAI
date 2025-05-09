@@ -106,5 +106,12 @@ export const en = {
   "new-password": "New Password",
   "confirm-new-password": "Confirm New Password",
   "update-password-button": "Update Password",
-  "go-to-home": "Go to Home"
+  "go-to-home": "Go to Home",
+
+  // Google Sign-In
+  "or-continue-with": "Or continue with",
+  "sign-in-with-google": "Sign In with Google",
+  "sign-up-with-google": "Sign Up with Google",
+  "google-signin-failed-title": "Google Sign-In Failed",
+  "google-signin-failed-default": "Failed to sign in with Google.",
 };

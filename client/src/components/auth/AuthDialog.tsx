@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
+import { FcGoogle } from "react-icons/fc";
 
 interface AuthDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function AuthDialog({ open, onOpenChange, initialTab = "login" }: AuthDia
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
@@ -82,6 +84,26 @@ export function AuthDialog({ open, onOpenChange, initialTab = "login" }: AuthDia
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Google Sign-In error:", err.message);
+      const errorMessage = err.message || t("google-signin-failed-default", {defaultValue: "Failed to sign in with Google."});
+      setError(errorMessage);
+      toast({ title: t("google-signin-failed-title", {defaultValue: "Google Sign-In Failed"}), description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   React.useEffect(() => {
     if (!open) {
       setEmail("");
@@ -89,6 +111,7 @@ export function AuthDialog({ open, onOpenChange, initialTab = "login" }: AuthDia
       setConfirmPassword("");
       setError(null);
       setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   }, [open]);
 
@@ -139,6 +162,19 @@ export function AuthDialog({ open, onOpenChange, initialTab = "login" }: AuthDia
                 {t("forgot-password", { defaultValue: "Forgot Password?" })}
               </button>
             </div>
+            <div className="my-4 flex items-center">
+              <div className="flex-grow border-t border-muted"></div>
+              <span className="mx-2 text-xs text-muted-foreground">{t("or-continue-with", { defaultValue: "Or continue with"})}</span>
+              <div className="flex-grow border-t border-muted"></div>
+            </div>
+            <Button variant="outline" className="w-full mb-2" onClick={handleGoogleSignIn} disabled={isGoogleLoading || isLoading}>
+              {isGoogleLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FcGoogle className="mr-2 h-5 w-5" />
+              )}
+              {t("sign-in-with-google", { defaultValue: "Sign In with Google"})}
+            </Button>
             <DialogFooter className="mt-2">
               <Button type="button" onClick={handleLogin} disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -189,8 +225,21 @@ export function AuthDialog({ open, onOpenChange, initialTab = "login" }: AuthDia
                 />
               </div>
             </div>
+            <div className="my-4 flex items-center">
+              <div className="flex-grow border-t border-muted"></div>
+              <span className="mx-2 text-xs text-muted-foreground">{t("or-continue-with", { defaultValue: "Or continue with"})}</span>
+              <div className="flex-grow border-t border-muted"></div>
+            </div>
+            <Button variant="outline" className="w-full mb-2" onClick={handleGoogleSignIn} disabled={isGoogleLoading || isLoading}>
+              {isGoogleLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FcGoogle className="mr-2 h-5 w-5" />
+              )}
+              {t("sign-up-with-google", { defaultValue: "Sign Up with Google"})}
+            </Button>
             <DialogFooter>
-              <Button type="button" onClick={handleSignUp} disabled={isLoading}>
+              <Button type="button" onClick={handleSignUp} disabled={isLoading || isGoogleLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("sign-up")}
               </Button>
