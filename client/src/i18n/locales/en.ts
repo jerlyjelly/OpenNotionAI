@@ -1,6 +1,27 @@
 export const en = {
   // Header
   "language": "Language",
+  "sign-up": "Sign Up",
+  "log-in": "Log In",
+  "log-out": "Log Out",
+  
+  // Auth
+  "email": "Email",
+  "password": "Password",
+  "confirm-password": "Confirm Password",
+  "passwords-do-not-match": "Passwords do not match",
+  "signup-failed-title": "Sign Up Failed",
+  "signup-success-title": "Sign Up Successful",
+  "signup-success-description": "Your account has been created. Please check your email to verify your account.",
+  "forgot-password": "Forgot Password?",
+  "login-success-title": "Login Successful",
+  "login-success-description": "You have successfully logged in.",
+  "reset-password-title": "Reset Your Password",
+  "send-reset-link": "Send Reset Link",
+  "password-reset-email-sent": "Password reset email sent. Please check your inbox.",
+  "password-reset-initiated": "Password reset initiated.",
+  "password-reset-failed": "Failed to send password reset email. Please try again.",
+  "password-reset-failed-title": "Password Reset Failed",
   
   // Sidebar
   "settings": "Settings",
@@ -71,5 +92,19 @@ export const en = {
   "notion-db-id-guide-step1": "1. Open your DB as a full page",
   "notion-db-id-guide-step2": "2. Copy the first 32 characters alphanumeric string from the URL",
   "notion-db-id-guide-step3-prefix": "3. See: ",
-  "notion-db-id-guide-step3-suffix": " for more detail"
+  "notion-db-id-guide-step3-suffix": " for more detail",
+
+  // Update Password
+  "update-password-invalid-link": "Invalid or expired link.",
+  "update-password-failed-title": "Update Failed",
+  "update-password-no-token": "No update token found. Please request a new password reset.",
+  "password-too-short": "Password must be at least 8 characters long.",
+  "update-password-success-title": "Password Updated",
+  "update-password-success-desc": "Your password has been updated successfully. You can now log in with your new password.",
+  "update-password-failed-general": "Failed to update password. Please try again.",
+  "update-password-page-title": "Update Your Password",
+  "new-password": "New Password",
+  "confirm-new-password": "Confirm New Password",
+  "update-password-button": "Update Password",
+  "go-to-home": "Go to Home"
 };

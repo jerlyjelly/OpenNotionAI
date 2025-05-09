@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import logoLight from "@/assets/logo-light.png";
 import logoDark from "@/assets/logo-dark.png";
 import { useTheme } from "@/components/ui/theme-provider";
@@ -5,7 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/i18n";
-import { Sun, Moon, PanelLeftClose, PanelRightOpen } from "lucide-react";
+import { Sun, Moon, PanelLeftClose, PanelRightOpen, UserCircle2, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import { useAuth } from "@/context/AuthContext";
 
 export function Header({ 
   isCollapsed, 
@@ -17,6 +26,14 @@ export function Header({
   const { setLanguage, language } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { t } = useTranslation();
+  const { user, signOut, isLoading: isAuthLoading } = useAuth();
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [authDialogInitialTab, setAuthDialogInitialTab] = useState<"login" | "signup">("login");
+
+  const openAuthDialog = (tab: "login" | "signup") => {
+    setAuthDialogInitialTab(tab);
+    setIsAuthDialogOpen(true);
+  };
 
   return (
     <header className="h-16 flex items-center justify-between px-4">
@@ -63,7 +80,61 @@ export function Header({
         >
           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
+
+        {/* User Auth Dropdown / Logout Button */}
+        {!isAuthLoading && (
+          user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  aria-label="User menu"
+                >
+                  {/* Placeholder for avatar - you can replace UserCircle2 with an actual avatar later */}
+                  <UserCircle2 className="h-5 w-5" /> 
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {user.email && <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>}              
+                <DropdownMenuItem onClick={signOut}>
+                  {t("log-out", { defaultValue: "Log Out" })}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  aria-label="User actions"
+                >
+                  <UserCircle2 className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openAuthDialog("signup")}>
+                  {t("sign-up")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openAuthDialog("login")}>
+                  {t("log-in")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        )}
+        {isAuthLoading && (
+          <Button variant="ghost" size="icon" disabled>
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </Button>
+        )}
       </div>
+      <AuthDialog 
+        open={isAuthDialogOpen} 
+        onOpenChange={setIsAuthDialogOpen} 
+        initialTab={authDialogInitialTab} 
+      />
     </header>
   );
 }

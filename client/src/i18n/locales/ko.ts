@@ -1,6 +1,27 @@
 export const ko = {
   // Header
   "language": "언어",
+  "sign-up": "회원가입",
+  "log-in": "로그인",
+  "log-out": "로그아웃",
+  
+  // Auth
+  "email": "이메일",
+  "password": "비밀번호",
+  "confirm-password": "비밀번호 확인",
+  "passwords-do-not-match": "비밀번호가 일치하지 않습니다",
+  "signup-failed-title": "회원가입 실패",
+  "signup-success-title": "회원가입 성공",
+  "signup-success-description": "계정이 생성되었습니다. 이메일을 확인하여 계정을 인증하세요.",
+  "login-success-title": "로그인 성공",
+  "login-success-description": "성공적으로 로그인되었습니다.",
+  "forgot-password": "비밀번호를 잊으셨나요?",
+  "reset-password-title": "비밀번호 재설정",
+  "send-reset-link": "재설정 링크 보내기",
+  "password-reset-email-sent": "비밀번호 재설정 이메일을 보냈습니다. 받은 편지함을 확인하세요.",
+  "password-reset-initiated": "비밀번호 재설정이 시작되었습니다.",
+  "password-reset-failed": "비밀번호 재설정 이메일을 보내지 못했습니다. 다시 시도해 주세요.",
+  "password-reset-failed-title": "비밀번호 재설정 실패",
   
   // Sidebar
   "settings": "설정",
@@ -73,5 +94,19 @@ export const ko = {
   "notion-db-id-guide-step1": "1. DB를 전체 페이지로여세요",
   "notion-db-id-guide-step2": "2. URL에서 처음 32자의 영숫자 문자열을 복사하십시오",
   "notion-db-id-guide-step3-prefix": "3. 자세한 내용은 다음을 참조하십시오: ",
-  "notion-db-id-guide-step3-suffix": " "
+  "notion-db-id-guide-step3-suffix": " ",
+
+  // Update Password
+  "update-password-invalid-link": "유효하지 않거나 만료된 링크입니다.",
+  "update-password-failed-title": "업데이트 실패",
+  "update-password-no-token": "업데이트 토큰을 찾을 수 없습니다. 새 비밀번호 재설정을 요청하세요.",
+  "password-too-short": "비밀번호는 8자 이상이어야 합니다.",
+  "update-password-success-title": "비밀번호 업데이트됨",
+  "update-password-success-desc": "비밀번호가 성공적으로 업데이트되었습니다. 이제 새 비밀번호로 로그인할 수 있습니다.",
+  "update-password-failed-general": "비밀번호를 업데이트하지 못했습니다. 다시 시도해 주세요.",
+  "update-password-page-title": "비밀번호 업데이트",
+  "new-password": "새 비밀번호",
+  "confirm-new-password": "새 비밀번호 확인",
+  "update-password-button": "비밀번호 업데이트",
+  "go-to-home": "홈으로 이동"
 };
