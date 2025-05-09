@@ -20,7 +20,10 @@ export const ko = {
   "connected": "연결됨",
   "disconnected": "연결 끊김",
   "connecting": "연결 중...",
+  "connecting-database": "데이터베이스에 연결 중...",
   "error-connecting": "연결 오류. 설정을 확인하세요.",
+  "select-database": "데이터베이스 선택",
+  "add-database": "데이터베이스 추가",
   
   // Chat Area
   "chat": "채팅",

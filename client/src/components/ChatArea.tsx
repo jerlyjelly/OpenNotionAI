@@ -6,7 +6,7 @@ import { useTranslation } from "@/i18n";
 import { useApiContext } from "@/context/ApiContext";
 // ChatMessage might not be needed if chatHistory is removed, but keep for now if Message uses it indirectly
 // import { ChatMessage } from "@/lib/llm-providers";
-import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare
+import { MessageCircle, Send, Loader2, Download, RefreshCw, Copy, Database, ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare, Plus } from "lucide-react"; // Removed Check, X, Added ChevronDown, ChevronUp, ExternalLink, ChevronRight, XSquare, Added Plus for DB selector
 import { useToast } from "@/hooks/use-toast";
 import { DBRecordManager } from "./DBRecordManager";
 import { DBStructure } from "./DBStructure"; // Import DBStructure
@@ -20,6 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
+import { Separator } from "@/components/ui/separator";
 
 // Helper function to extract title from Notion page properties
 const getNotionPageTitle = (properties: Record<string, any>): string => {
@@ -69,26 +70,27 @@ export function ChatArea() {
   const { toast } = useToast();
   const {
     isConnected,
+    isConnecting,
     dbStructure,
-    isProcessing, // Keep isProcessing for loading states
+    isProcessing,
     notionApiKey,
-    notionDbId,   // Corrected name
-    llmApiKey,    // Add llmApiKey
-    llmProvider,  // Add llmProvider
-    llmModel,     // <<< Add llmModel from context
-    // Removed chatWithLLM and notionClient
+    notionDbId,
+    llmApiKey,
+    llmProvider,
+    llmModel,
+    dbList,
+    addDatabase,
+    switchDatabase,
   } = useApiContext();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [activeTab, setActiveTab] = useState<string>("chat");
   const [showDbStructure, setShowDbStructure] = useState<boolean>(false); // State to toggle DB structure visibility - Default to hidden
-  // Removed pendingAction state
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null); // Added AbortController ref
-
-  // Keep isProcessing state, but rename the setter if needed (or keep if context provides it)
   const [isLoading, setIsLoading] = useState(false); // Local loading state for fetch
+  const [newDbId, setNewDbId] = useState("");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -389,6 +391,17 @@ export function ChatArea() {
     });
   };
 
+  // Display loading indicator if isConnecting is true
+  if (isConnecting) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <Loader2 className="h-20 w-20 text-primary animate-spin" /> 
+        <p className="text-muted-foreground mt-4">{t("connecting-database", { defaultValue: "Connecting to database..."})}</p>
+      </div>
+    );
+  }
+
+  // If not connecting and not connected, show welcome/setup screen
   if (!isConnected) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -433,21 +446,73 @@ export function ChatArea() {
         <TabsContent value="chat" className="flex-1 flex flex-col relative mt-0 p-0 overflow-hidden">
           {/* Flex container for DB structure toggle and icons */}
           <div className="flex items-center justify-between px-4 py-2">
-            {/* Button to toggle DB structure visibility */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDbStructure(!showDbStructure)}
-              className="flex items-center space-x-1"
-            >
-              {/* Use dbStructure.title if available, fallback to translation. Added truncate and title attribute for long names */}
-              <span className="text-sm font-medium truncate max-w-[200px]" title={dbStructure?.title || t("database-structure")}>
-                {dbStructure?.title || t("database-structure")}
-              </span>
-              {showDbStructure ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
+            <div className="flex items-center space-x-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-2">
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium">{t("select-database", { defaultValue: "Select Database" })}</span>
+                      <div className="mt-1 max-h-40 overflow-auto space-y-1">
+                        {dbList.map((db) => {
+                          const isActiveAndConnected = db.id === notionDbId && isConnected;
+                          return (
+                            <Button
+                              key={db.id}
+                              variant={db.id === notionDbId ? "secondary" : "ghost"}
+                              size="sm"
+                              className={`justify-start w-full ${!isActiveAndConnected ? "text-muted-foreground" : ""}`}
+                              onClick={() => switchDatabase(db.id)}
+                            >
+                              {db.title}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <Separator />
+                    <div>
+                      <span className="text-sm font-medium">{t("add-database", { defaultValue: "Add Database" })}</span>
+                      <div className="mt-1 flex space-x-1">
+                        <Input
+                          value={newDbId}
+                          onChange={(e) => setNewDbId(e.target.value)}
+                          placeholder={t("DB ID here", { defaultValue: "Database ID" })}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!newDbId.trim()}
+                          onClick={() => {
+                            addDatabase(newDbId.trim());
+                            setNewDbId("");
+                          }}
+                        >
+                          {t("Add", { defaultValue: "Add" })}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-            {/* Icons */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDbStructure(!showDbStructure)}
+                className="flex items-center space-x-1"
+              >
+                <span className="text-sm font-medium truncate max-w-[200px]" title={dbStructure?.title || t("database-structure")}> 
+                  {dbStructure?.title || t("database-structure")}
+                </span>
+                {showDbStructure ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+
             <div className="flex space-x-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -566,13 +631,13 @@ export function ChatArea() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t("chat-placeholder")}
-              disabled={isLoading} // Input remains disabled during loading
+              disabled={isLoading || !isConnected} // Input remains disabled during loading OR if not connected
               className="flex-1"
             />
-            <Button 
-              type={isLoading ? "button" : "submit"} 
+            <Button
+              type={isLoading ? "button" : "submit"}
               onClick={isLoading ? handleStop : undefined}
-              disabled={!isLoading && !input.trim()} // Disabled if not loading AND input is empty
+              disabled={isLoading ? false : (!input.trim() || !isConnected)} // If loading, it's a stop button (never disabled). If not loading, disabled if input empty or not connected.
             >
               {isLoading ? (
                 <XSquare className="h-4 w-4" /> // Stop icon

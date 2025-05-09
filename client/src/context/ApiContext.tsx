@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, ReactNode, useCallback } from "react";
+import { createContext, useState, useContext, ReactNode, useCallback, useEffect } from "react";
 import { NotionClient, DatabaseStructure } from "@/lib/notion";
 import {
   createLLMClient,
@@ -27,16 +27,18 @@ interface ApiContextType {
   chatWithLLM: (messages: ChatMessage[]) => Promise<string>;
   isProcessing: boolean;
   notionClient: NotionClient | null;
-  reconnect: () => Promise<void>;
   connectionError: string | null;
-  isRefreshing: boolean; // Renamed from isDbLoading
-  refreshData: () => Promise<void>; // Renamed from refreshDbStructure
+  isRefreshing: boolean;
+  refreshData: () => Promise<void>;
   records: NotionRecord[];
   isRecordsLoading: boolean;
   recordsError: string | null;
+  dbList: { id: string; title: string }[];
+  addDatabase: (dbId: string) => void;
+  switchDatabase: (dbId: string) => void;
+  clearConnection: () => void;
 }
 
-// Define NotionRecord type here or import if moved
 type NotionRecord = {
   id: string;
   properties: Record<string, any>;
@@ -50,35 +52,30 @@ const ApiContext = createContext<ApiContextType | undefined>(undefined);
 export function ApiProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
-  // API states
-  const [notionApiKey, setNotionApiKey] = useState("");
-  const [notionDbId, setNotionDbId] = useState("");
-  const [llmProvider, setLlmProvider] = useState<LLMProvider>("openai");
-  const [llmApiKey, setLlmApiKey] = useState("");
-  const [llmModel, setLlmModel] = useState(defaultModels.openai);
+  const [notionApiKey, setNotionApiKeyInternal] = useState("");
+  const [notionDbId, setNotionDbIdInternal] = useState("");
+  const [llmProvider, setLlmProviderInternal] = useState<LLMProvider>("openai");
+  const [llmApiKey, setLlmApiKeyInternal] = useState("");
+  const [llmModel, setLlmModelInternal] = useState(defaultModels.openai);
   
-  // Connection states
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   
-  // Client instances
   const [notionClient, setNotionClient] = useState<NotionClient | null>(null);
   const [llmClient, setLlmClient] = useState<LLMInterface | null>(null);
   
-  // Database structure
   const [dbStructure, setDbStructure] = useState<DatabaseStructure | null>(null);
-  
-  // Database records
+  const [dbList, setDbList] = useState<{ id: string; title: string }[]>([]);
+  const [activelyConnectedDbId, setActivelyConnectedDbId] = useState<string | null>(null);
+
   const [records, setRecords] = useState<NotionRecord[]>([]);
   const [isRecordsLoading, setIsRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState<string | null>(null);
 
-  // Combined refresh state
-  const [isRefreshing, setIsRefreshing] = useState(false); // Renamed from isDbLoading
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Internal function to fetch records
   const fetchRecords = useCallback(async (client: NotionClient) => {
     if (!client) return;
     setIsRecordsLoading(true);
@@ -90,60 +87,81 @@ export function ApiProvider({ children }: { children: ReactNode }) {
       console.error("Error fetching records:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch records";
       setRecordsError(errorMessage);
-      // Optionally show toast for record fetch errors
-      // toast({ title: "Record Fetch Failed", description: errorMessage, variant: "destructive" });
     } finally {
       setIsRecordsLoading(false);
     }
-  }, []); // Empty dependency array as it uses the passed client
+  }, []);
 
-  // Connect to Notion and LLM
-  const connect = async () => {
-    if (isConnecting || isConnected) return;
-    
+  const clearConnectionStates = useCallback(() => {
+    setIsConnected(false);
+    setDbStructure(null);
+    setNotionClient(null);
+    setLlmClient(null);
+    setRecords([]);
+    setRecordsError(null);
+    setActivelyConnectedDbId(null);
+    setDbList(prev => prev.filter(db => db.id !== notionDbId));
+  }, [notionDbId]);
+  
+  const clearConnection = useCallback(() => {
+    setNotionApiKeyInternal("");
+    setNotionDbIdInternal("");
+    clearConnectionStates();
+    setConnectionError(null);
+    toast({ title: "Disconnected", description: "Connection details have been cleared." });
+  }, [clearConnectionStates, toast]);
+
+  const connect = useCallback(async () => {
+    if (isConnecting) return;
+
     if (!notionApiKey || !notionDbId || !llmApiKey) {
-      setConnectionError("Missing API Keys");
-      toast({
-        title: "Missing API Keys",
-        description: "Please provide all required API keys and database ID.",
-        variant: "destructive",
-      });
+      setConnectionError("Missing API Keys or Database ID.");
+      if (isConnected) clearConnectionStates();
       return;
     }
     
+    if (isConnected && notionDbId === activelyConnectedDbId && notionClient && llmClient) {
+    }
+
     setIsConnecting(true);
     setConnectionError(null);
+
+    if ((isConnected && notionDbId !== activelyConnectedDbId) || !isConnected) {
+      clearConnectionStates();
+      setIsConnected(false);
+    }
     
     try {
-      // Create Notion client
       const newNotionClient = new NotionClient(notionApiKey, notionDbId);
-      
-      // Test connection by fetching database structure
       const structure = await newNotionClient.getDatabaseStructure();
       
-      // Create LLM client with the selected model
       const newLlmClient = createLLMClient(llmProvider, llmApiKey, llmModel);
       
-      // Save clients and data
-      setNotionClient(newNotionClient);
-      // Save clients and structure
       setNotionClient(newNotionClient);
       setLlmClient(newLlmClient);
       setDbStructure(structure);
       
-      // Fetch initial records
-      await fetchRecords(newNotionClient); 
+      setDbList(prevDbList => {
+        const exists = prevDbList.some(db => db.id === notionDbId);
+        if (structure.title && !exists) {
+          return [...prevDbList, { id: notionDbId, title: structure.title }];
+        }
+        return prevDbList;
+      });
       
-      setIsConnected(true); // Set connected only after structure AND records are attempted
-
+      await fetchRecords(newNotionClient);
+      
+      setIsConnected(true);
+      setActivelyConnectedDbId(notionDbId);
       toast({
         title: "Connected Successfully",
-        description: "You can now chat with your Notion database.",
+        description: `Now connected to "${structure.title || notionDbId}".`,
       });
     } catch (error) {
       console.error("Connection error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to connect to Notion or LLM provider";
       setConnectionError(errorMessage);
+      clearConnectionStates();
       toast({
         title: "Connection Failed",
         description: errorMessage,
@@ -152,33 +170,83 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, [
+    notionApiKey, notionDbId, llmApiKey, llmProvider, llmModel, 
+    isConnected, isConnecting, activelyConnectedDbId, notionClient, llmClient,
+    fetchRecords, toast, clearConnectionStates
+  ]);
 
-  // Refresh database structure and records manually
-  const refreshData = async () => {
+  useEffect(() => {
+    if (!notionDbId || !notionApiKey || !llmApiKey) {
+      if (isConnected) {
+        clearConnectionStates();
+        setConnectionError("Configuration became invalid. Disconnected.");
+         toast({ title: "Disconnected", description: "Connection configuration became invalid." });
+      }
+      return;
+    }
+
+    if ((notionDbId && notionDbId !== activelyConnectedDbId) || (!isConnected && notionDbId)) {
+      connect();
+    } else if (isConnected && notionDbId === activelyConnectedDbId) {
+    }
+  }, [notionDbId, notionApiKey, llmApiKey, connect, isConnected, activelyConnectedDbId, clearConnectionStates, toast]);
+
+  const setNotionApiKey = useCallback((key: string) => {
+    setNotionApiKeyInternal(key);
+    if (!key && isConnected) {
+        clearConnectionStates();
+        setConnectionError("Notion API Key cleared. Disconnected.");
+        toast({ title: "Disconnected", description: "Notion API Key was cleared." });
+    }
+  }, [isConnected, clearConnectionStates, toast]);
+
+  const setLlmApiKey = useCallback((key: string) => {
+    setLlmApiKeyInternal(key);
+     if (!key && isConnected) {
+        if (llmClient) {
+        }
+     }
+  }, [isConnected, llmClient]);
+
+  const addDatabase = useCallback((dbId: string) => {
+    setNotionDbIdInternal(dbId);
+  }, []);
+
+  const switchDatabase = useCallback((dbId: string) => {
+    if (dbId === notionDbId && isConnected) return; 
+    setNotionDbIdInternal(dbId);
+  }, [notionDbId, isConnected]);
+  
+  const setLlmProvider = useCallback((provider: LLMProvider) => {
+    setLlmProviderInternal(provider);
+    setLlmModelInternal(defaultModels[provider]);
+  }, []);
+
+  const setLlmModel = useCallback((model: string) => {
+    setLlmModelInternal(model);
+    if (llmClient) {
+        llmClient.setModel(model);
+    }
+  }, [llmClient]);
+
+  const refreshData = useCallback(async () => {
     if (!notionClient || !isConnected || isRefreshing) return;
 
     setIsRefreshing(true);
-    setRecordsError(null); // Clear previous errors
-
+    setRecordsError(null);
     try {
-      // Fetch structure first
       const structure = await notionClient.getDatabaseStructure();
       setDbStructure(structure);
-      
-      // Then fetch records
-      await fetchRecords(notionClient); 
-
+      await fetchRecords(notionClient);
       toast({
         title: "Database Refreshed",
         description: "Database structure and records have been updated.",
       });
     } catch (error) {
-      // Error handling for structure fetch (record fetch errors handled in fetchRecords)
       console.error("DB structure refresh error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to refresh database structure";
-      // Decide if this error should be shown differently or combined with recordsError
-      setRecordsError(errorMessage); // Temporarily using recordsError for structure errors too
+      setConnectionError(`Refresh Failed: ${errorMessage}`);
       toast({
         title: "Refresh Failed",
         description: errorMessage,
@@ -187,25 +255,12 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [notionClient, isConnected, isRefreshing, fetchRecords, toast]);
 
-  // Reconnect with current settings
-  const reconnect = async () => {
-    if (isConnected) {
-      setIsConnected(false);
-      setDbStructure(null);
-      setRecords([]); // Clear records on disconnect
-      setRecordsError(null);
+  const chatWithLLM = useCallback(async (messages: ChatMessage[]): Promise<string> => {
+    if (!llmClient || !isConnected) {
+      throw new Error("LLM client not initialized or not connected.");
     }
-    return connect();
-  };
-
-  // Chat with LLM
-  const chatWithLLM = async (messages: ChatMessage[]): Promise<string> => {
-    if (!llmClient) {
-      throw new Error("LLM client not initialized");
-    }
-    
     setIsProcessing(true);
     try {
       const response = await llmClient.chat(messages);
@@ -213,21 +268,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  // Handle provider change to update default model
-  const handleProviderChange = (newProvider: LLMProvider) => {
-    setLlmProvider(newProvider);
-    setLlmModel(defaultModels[newProvider]);
-  };
-  
-  // Update model for the current LLM client
-  const updateLlmModel = (model: string) => {
-    setLlmModel(model);
-    if (llmClient) {
-      llmClient.setModel(model);
-    }
-  };
+  }, [llmClient, isConnected]);
 
   return (
     <ApiContext.Provider
@@ -235,27 +276,30 @@ export function ApiProvider({ children }: { children: ReactNode }) {
         notionApiKey,
         setNotionApiKey,
         notionDbId,
-        setNotionDbId,
+        setNotionDbId: setNotionDbIdInternal,
         llmProvider,
-        setLlmProvider: handleProviderChange,
+        setLlmProvider,
         llmApiKey,
         setLlmApiKey,
         llmModel,
-        setLlmModel: updateLlmModel,
+        setLlmModel,
         isConnecting,
         isConnected,
         connect,
-        reconnect,
         dbStructure,
         chatWithLLM,
         isProcessing,
         notionClient,
         connectionError,
-        isRefreshing, // Renamed
-        refreshData, // Renamed
+        isRefreshing,
+        refreshData,
         records,
         isRecordsLoading,
-        recordsError
+        recordsError,
+        dbList,
+        addDatabase,
+        switchDatabase,
+        clearConnection,
       }}
     >
       {children}
@@ -265,7 +309,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
 
 export function useApiContext() {
   const context = useContext(ApiContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useApiContext must be used within an ApiProvider");
   }
   return context;
