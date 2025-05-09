@@ -14,6 +14,7 @@ export const en = {
   "signup-success-title": "Sign Up Successful",
   "signup-success-description": "Your account has been created. Please check your email to verify your account.",
   "forgot-password": "Forgot Password?",
+  "login-failed-title": "Login Failed",
   "login-success-title": "Login Successful",
   "login-success-description": "You have successfully logged in.",
   "reset-password-title": "Reset Your Password",
@@ -114,4 +115,27 @@ export const en = {
   "sign-up-with-google": "Sign Up with Google",
   "google-signin-failed-title": "Google Sign-In Failed",
   "google-signin-failed-default": "Failed to sign in with Google.",
+
+  // Account Settings Modal
+  "account-settings.title": "Account Settings",
+  "account-settings.menu-item": "Account Settings",
+  "account-settings.description": "Manage your account settings here.",
+  "account-settings.danger-zone": "Danger Zone",
+  "account-settings.delete-account-button": "Delete My Account",
+  "account-settings.confirm-delete-title": "Confirm Account Deletion",
+  "account-settings.confirm-delete-warning": "This action is irreversible and will permanently delete your account and all associated data. Are you sure you want to proceed?",
+  "account-settings.delete-error-generic": "Failed to delete account. Please try again.",
+  "account-settings.confirm-delete-button": "Yes, Delete My Account",
+  "common.close": "Close",
+
+  // Account Settings - Change Password
+  "account-settings.change-password-title": "Change Password",
+  "account-settings.current-password": "Current Password",
+  "account-settings.new-password": "New Password",
+  "account-settings.confirm-new-password": "Confirm New Password",
+  "account-settings.password-mismatch": "New passwords do not match.",
+  "account-settings.password-too-short": "Password must be at least 8 characters long.",
+  "account-settings.password-update-success": "Password updated successfully!",
+  "account-settings.password-update-error-generic": "Failed to update password. Please try again.",
+  "account-settings.update-password-button": "Update Password",
 };

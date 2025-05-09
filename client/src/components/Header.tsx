@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth } from "@/context/AuthContext";
+import { AccountSettingsModal } from "@/components/account/AccountSettingsModal";
 
 export function Header({ 
   isCollapsed, 
@@ -29,6 +30,7 @@ export function Header({
   const { user, signOut, isLoading: isAuthLoading } = useAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [authDialogInitialTab, setAuthDialogInitialTab] = useState<"login" | "signup">("login");
+  const [isAccountSettingsModalOpen, setIsAccountSettingsModalOpen] = useState(false);
 
   const openAuthDialog = (tab: "login" | "signup") => {
     setAuthDialogInitialTab(tab);
@@ -97,6 +99,9 @@ export function Header({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {user.email && <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>}              
+                <DropdownMenuItem onClick={() => setIsAccountSettingsModalOpen(true)}>
+                  {t("account-settings.menu-item", { defaultValue: "Account Settings" })}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut}>
                   {t("log-out", { defaultValue: "Log Out" })}
                 </DropdownMenuItem>
@@ -134,6 +139,10 @@ export function Header({
         open={isAuthDialogOpen} 
         onOpenChange={setIsAuthDialogOpen} 
         initialTab={authDialogInitialTab} 
+      />
+      <AccountSettingsModal
+        open={isAccountSettingsModalOpen}
+        onOpenChange={setIsAccountSettingsModalOpen}
       />
     </header>
   );

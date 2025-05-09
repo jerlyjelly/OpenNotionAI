@@ -13,6 +13,7 @@ export const ko = {
   "signup-failed-title": "회원가입 실패",
   "signup-success-title": "회원가입 성공",
   "signup-success-description": "계정이 생성되었습니다. 이메일을 확인하여 계정을 인증하세요.",
+  "login-failed-title": "로그인 실패",
   "login-success-title": "로그인 성공",
   "login-success-description": "성공적으로 로그인되었습니다.",
   "forgot-password": "비밀번호를 잊으셨나요?",
@@ -108,5 +109,28 @@ export const ko = {
   "new-password": "새 비밀번호",
   "confirm-new-password": "새 비밀번호 확인",
   "update-password-button": "비밀번호 업데이트",
-  "go-to-home": "홈으로 이동"
+  "go-to-home": "홈으로 이동",
+
+  // Account Settings Modal
+  "account-settings.title": "계정 설정",
+  "account-settings.menu-item": "계정 설정",
+  "account-settings.description": "여기에서 계정 설정을 관리하세요.",
+  "account-settings.danger-zone": "위험 구역",
+  "account-settings.delete-account-button": "내 계정 삭제",
+  "account-settings.confirm-delete-title": "계정 삭제 확인",
+  "account-settings.confirm-delete-warning": "이 작업은 되돌릴 수 없으며 계정과 모든 관련 데이터가 영구적으로 삭제됩니다. 계속 진행하시겠습니까?",
+  "account-settings.delete-error-generic": "계정 삭제에 실패했습니다. 다시 시도해 주세요.",
+  "account-settings.confirm-delete-button": "예, 내 계정 삭제",
+  "common.close": "닫기",
+
+  // Account Settings - Change Password
+  "account-settings.change-password-title": "비밀번호 변경",
+  "account-settings.current-password": "현재 비밀번호",
+  "account-settings.new-password": "새 비밀번호",
+  "account-settings.confirm-new-password": "새 비밀번호 확인",
+  "account-settings.password-mismatch": "새 비밀번호가 일치하지 않습니다.",
+  "account-settings.password-too-short": "비밀번호는 8자 이상이어야 합니다.",
+  "account-settings.password-update-success": "비밀번호가 성공적으로 업데이트되었습니다!",
+  "account-settings.password-update-error-generic": "비밀번호 업데이트에 실패했습니다. 다시 시도해 주세요.",
+  "account-settings.update-password-button": "비밀번호 업데이트",
 };

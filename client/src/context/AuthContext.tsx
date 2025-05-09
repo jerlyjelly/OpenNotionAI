@@ -7,6 +7,10 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  isGoogleLoading: boolean;
+  deleteUserAccount: () => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,6 +19,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -37,9 +42,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
+  const signInWithGoogle = async () => {
+    setIsGoogleLoading(true);
+    console.log("Attempting Google Sign-In...");
+    await new Promise(resolve => setTimeout(resolve, 1000)); 
+    console.log("Google Sign-In placeholder complete.");
+    setIsGoogleLoading(false);
+  };
+
   const signOut = async () => {
+    setIsLoading(true);
     await supabase.auth.signOut();
-    // Session and user will be set to null by onAuthStateChange
+    setUser(null);
+    setSession(null);
+    setIsLoading(false);
+  };
+
+  const deleteUserAccount = async () => {
+    if (!user) throw new Error("User not authenticated.");
+    console.warn("Placeholder: deleteUserAccount called. Implement backend deletion logic.");
+    await signOut();
+  };
+
+  const updateUserPassword = async (newPassword: string) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      console.error("Error updating password:", error.message);
+      // You might want to map Supabase errors to more user-friendly messages
+      if (error.message.includes("Password should be at least 6 characters")) {
+        throw new Error("Password must be at least 8 characters long."); // Or use a locale key
+      }
+      throw new Error(error.message || "Failed to update password.");
+    }
+    // Password updated successfully, Supabase handles session refresh.
+    // Optionally, update local user state if needed, though Supabase usually manages this.
+    if (data.user) {
+        setUser(data.user); // Update user state with potentially new metadata
+    }
+    console.log("Password updated successfully for user:", data.user?.id);
   };
 
   const value = {
@@ -47,6 +90,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     isLoading,
     signOut,
+    signInWithGoogle,
+    isGoogleLoading,
+    deleteUserAccount,
+    updateUserPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
