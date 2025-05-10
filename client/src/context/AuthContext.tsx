@@ -60,8 +60,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteUserAccount = async () => {
     if (!user) throw new Error("User not authenticated.");
-    console.warn("Placeholder: deleteUserAccount called. Implement backend deletion logic.");
+
+    // Call the Supabase Edge Function
+    const { error: functionError } = await supabase.functions.invoke('delete-user-account');
+
+    if (functionError) {
+      console.error("Error deleting user account via Edge Function:", functionError);
+      throw new Error(functionError.message || "Failed to delete account data.");
+    }
+
+    // If the function call is successful, then sign out
     await signOut();
+    // Optionally, you can add a success message or redirect the user
+    console.log("User account deleted and signed out successfully.");
   };
 
   const updateUserPassword = async (newPassword: string) => {

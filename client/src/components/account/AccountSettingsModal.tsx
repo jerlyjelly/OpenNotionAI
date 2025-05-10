@@ -72,13 +72,13 @@ export function AccountSettingsModal({ open, onOpenChange }: AccountSettingsModa
     try {
       // We'll need to implement deleteUserAccount in AuthContext
       // This is a placeholder for now.
-      // await deleteUserAccount(); 
-      console.log("Account deletion requested for user:", user.id);
+      await deleteUserAccount(); 
+      // console.log("Account deletion requested for user:", user.id);
       // For now, let's simulate success and close the modal.
       // In a real scenario, you'd call an API and handle signOut on success.
       // signOut(); // This would also be part of AuthContext
-      onOpenChange(false);
-      setShowConfirmDelete(false);
+      onOpenChange(false); // Close modal on success
+      setShowConfirmDelete(false); // Hide confirmation section
     } catch (error: any) {
       console.error("Failed to delete account:", error);
       setDeleteError(error.message || t('account-settings.delete-error-generic', {defaultValue: 'Failed to delete account. Please try again.'}));
