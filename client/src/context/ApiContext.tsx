@@ -8,6 +8,8 @@ import {
   defaultModels 
 } from "@/lib/llm-providers";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/lib/supabaseClient'; // Corrected import path based on file structure
+import { User } from '@supabase/supabase-js';
 
 interface ApiContextType {
   notionApiKey: string;
@@ -37,6 +39,7 @@ interface ApiContextType {
   addDatabase: (dbId: string) => void;
   switchDatabase: (dbId: string) => void;
   clearConnection: () => void;
+  currentUser: User | null; // Added currentUser to context type
 }
 
 type NotionRecord = {
@@ -75,6 +78,21 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   const [recordsError, setRecordsError] = useState<string | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+    // Initial check for user session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchRecords = useCallback(async (client: NotionClient) => {
     if (!client) return;
@@ -153,10 +171,23 @@ export function ApiProvider({ children }: { children: ReactNode }) {
       
       setIsConnected(true);
       setActivelyConnectedDbId(notionDbId);
-      toast({
-        title: "Connected Successfully",
-        description: `Now connected to "${structure.title || notionDbId}".`,
-      });
+
+      // Nudge logic after successful connection - remove setTimeout
+      if (!currentUser) {
+        toast({
+          title: "Save Your Connection!",
+          description: "Sign up or log in to save these Notion details for quick access next time.",
+          duration: 10000,
+        });
+      } else {
+        // TODO: In the future, check if this specific connection is already saved for this user.
+        toast({
+          title: "Connection Active!",
+          description: "You can save or update these Notion details in your account using the 'Manage Saved Connection' button in the sidebar.",
+          duration: 10000,
+        });
+      }
+
     } catch (error) {
       console.error("Connection error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to connect to Notion or LLM provider";
@@ -300,6 +331,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
         addDatabase,
         switchDatabase,
         clearConnection,
+        currentUser // Provide currentUser in context
       }}
     >
       {children}
@@ -309,7 +341,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
 
 export function useApiContext() {
   const context = useContext(ApiContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useApiContext must be used within an ApiProvider");
   }
   return context;

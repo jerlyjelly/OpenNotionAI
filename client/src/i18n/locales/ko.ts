@@ -133,4 +133,25 @@ export const ko = {
   "account-settings.password-update-success": "비밀번호가 성공적으로 업데이트되었습니다!",
   "account-settings.password-update-error-generic": "비밀번호 업데이트에 실패했습니다. 다시 시도해 주세요.",
   "account-settings.update-password-button": "비밀번호 업데이트",
+
+  // Notion Secret Dialog
+  "manage-notion-connection-title": "Notion 연결 관리",
+  "manage-notion-connection-desc": "Notion API 키 및 데이터베이스 ID를 저장하거나 업데이트하세요. 이 정보는 안전하게 보관됩니다.",
+  "secret-saved-title": "연결 정보 저장됨",
+  "secret-saved-desc": "Notion 연결 정보가 저장되었습니다.",
+  "secret-save-failed-default": "연결 정보 저장에 실패했습니다.",
+  "secret-save-failed-title": "저장 실패",
+  "secret-deleted-title": "연결 정보 삭제됨",
+  "secret-deleted-desc": "Notion 연결 정보가 삭제되었습니다.",
+  "secret-delete-failed-default": "연결 정보 삭제에 실패했습니다.",
+  "secret-delete-failed-title": "삭제 실패",
+  "delete-button": "삭제",
+  "save-button": "저장",
+
+  // Sidebar buttons
+  "manage-notion-connection-button": "저장된 연결 관리",
+
+  // LLM API Key specific to the dialog
+  "llm-api-key-suffix": "API 키",
+  "enter-llm-api-key-placeholder": "{{provider}} API 키 입력"
 };

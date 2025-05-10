@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react"; // Import useEffect
+import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Eye, EyeOff, PanelLeftClose, PanelRightOpen, Info } from "lucide-react"; // Import new icons and Info icon
-import { useTranslation } from "@/i18n"; // Keep useTranslation
-import { useApiContext } from "@/context/ApiContext";
-import { LLMProvider, availableModels, defaultModels } from "@/lib/llm-providers";
-import { InfoModal } from "@/components/InfoModal"; // Updated import
-
+import { Eye, EyeOff, Info, Loader2, Settings2 } from 'lucide-react'; // Added Settings2 for manage connection button
+import { useApiContext } from '@/context/ApiContext';
+import { LLMProvider, defaultModels, availableModels } from "@/lib/llm-providers"; // Import directly & add availableModels
+import { InfoModal } from './InfoModal';
+import { supabase } from '@/lib/supabaseClient'; // Import supabase client
+import { User } from '@supabase/supabase-js'; // Import User type
+import { NotionSecretDialog } from '@/components/notion/notionsecretdialog'; // Import the new dialog
 
 export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
   const { t } = useTranslation();
@@ -18,8 +20,7 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
     llmProvider, setLlmProvider,
     llmApiKey, setLlmApiKey,
     llmModel, setLlmModel,
-    connect, isConnecting, isConnected,
-    dbStructure
+    connect, isConnecting, isConnected
   } = useApiContext();
 
   const [showNotionApiKey, setShowNotionApiKey] = useState(false);
@@ -27,6 +28,23 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
   const [showLlmApiKey, setShowLlmApiKey] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false); // State for the info modal
   const [isDbIdInfoModalOpen, setIsDbIdInfoModalOpen] = useState(false); // State for DB ID info modal
+  const [isNotionSecretDialogOpen, setIsNotionSecretDialogOpen] = useState(false); // State for Notion Secret Dialog
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    // Initial check
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const notionSecretGuideContent = (
     <div className="space-y-3 text-sm text-muted-foreground">
@@ -172,7 +190,7 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
                   <SelectValue placeholder={t("select-llm-model")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableModels[llmProvider].map((model) => (
+                  {availableModels[llmProvider].map((model) => ( // Remove ModelOption type, it will be inferred
                     <SelectItem key={model.value} value={model.value}>
                       {model.label}
                     </SelectItem>
@@ -224,6 +242,18 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
               t("connect")
             )}
           </Button>
+
+          {/* Manage Saved Notion Connection Button - Only show if user is logged in */}
+          {currentUser && (
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => setIsNotionSecretDialogOpen(true)}
+            >
+              <Settings2 className="mr-2 h-4 w-4" />
+              {t("manage-notion-connection-button", { defaultValue: "Manage Saved Connection"})}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -242,6 +272,14 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
         content={notionDbIdGuideContent}
         buttonKey="close-button"
       />
+
+      {/* Notion Secret Dialog - Render if currentUser exists to allow interaction */}
+      {currentUser && (
+        <NotionSecretDialog 
+          open={isNotionSecretDialogOpen} 
+          onOpenChange={setIsNotionSecretDialogOpen} 
+        />
+      )}
     </div>
   );
 }

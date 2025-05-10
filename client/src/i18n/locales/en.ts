@@ -138,4 +138,25 @@ export const en = {
   "account-settings.password-update-success": "Password updated successfully!",
   "account-settings.password-update-error-generic": "Failed to update password. Please try again.",
   "account-settings.update-password-button": "Update Password",
+
+  // Notion Secret Dialog
+  "manage-notion-connection-title": "Manage Notion Connection",
+  "manage-notion-connection-desc": "Save or update your Notion API Key and Database ID. These will be stored securely.",
+  "secret-saved-title": "Connection Saved",
+  "secret-saved-desc": "Your Notion connection details have been saved.",
+  "secret-save-failed-default": "Failed to save connection details.",
+  "secret-save-failed-title": "Save Failed",
+  "secret-deleted-title": "Connection Deleted",
+  "secret-deleted-desc": "Your Notion connection details have been removed.",
+  "secret-delete-failed-default": "Failed to delete connection details.",
+  "secret-delete-failed-title": "Delete Failed",
+  "delete-button": "Delete",
+  "save-button": "Save",
+
+  // Sidebar buttons
+  "manage-notion-connection-button": "Manage Saved Connection",
+
+  // LLM API Key specific to the dialog
+  "llm-api-key-suffix": "API Key",
+  "enter-llm-api-key-placeholder": "Enter {{provider}} API Key"
 };
