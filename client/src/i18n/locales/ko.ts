@@ -111,6 +111,13 @@ export const ko = {
   "update-password-button": "비밀번호 업데이트",
   "go-to-home": "홈으로 이동",
 
+  // Google Sign-In
+  "or-continue-with": "TRANSLATE ME",
+  "sign-in-with-google": "TRANSLATE ME",
+  "sign-up-with-google": "TRANSLATE ME",
+  "google-signin-failed-title": "TRANSLATE ME",
+  "google-signin-failed-default": "TRANSLATE ME",
+
   // Account Settings Modal
   "account-settings.title": "계정 설정",
   "account-settings.menu-item": "계정 설정",
