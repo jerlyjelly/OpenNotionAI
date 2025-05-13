@@ -56,6 +56,7 @@ You will need to use the environment variables [defined in `.env.example`](.env.
 
 ```bash
 pnpm install
+pnpm tsx lib/db/migrate.ts && pnpm run build
 pnpm dev
 ```
 
