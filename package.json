@@ -1,6 +1,6 @@
 {
-  "name": "ai-chatbot",
-  "version": "3.0.22",
+  "name": "opennotionai",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
