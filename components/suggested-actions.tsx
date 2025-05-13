@@ -19,24 +19,25 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'What are the advantages',
-      label: 'of using Next.js?',
-      action: 'What are the advantages of using Next.js?',
+      title: 'Chat about my',
+      label: 'latest Notion project notes',
+      action:
+        'Can you summarize the key points from my latest Notion project notes?',
     },
     {
-      title: 'Write code to',
-      label: `demonstrate djikstra's algorithm`,
-      action: `Write code to demonstrate djikstra's algorithm`,
+      title: 'Create a new page for',
+      label: 'a marketing campaign plan in Notion',
+      action: 'Create a new Notion page for a marketing campaign plan.',
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
+      title: 'Ask about tasks',
+      label: 'due this week in my Notion DB',
+      action: 'What tasks are due this week from my Notion database?',
     },
     {
-      title: 'What is the weather',
-      label: 'in San Francisco?',
-      action: 'What is the weather in San Francisco?',
+      title: 'Find information on',
+      label: 'customer feedback in Notion',
+      action: 'Find all entries related to customer feedback in my Notion DB.',
     },
   ];
 
