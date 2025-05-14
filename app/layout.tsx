@@ -7,9 +7,70 @@ import './globals.css';
 import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://chat.vercel.ai'),
-  title: 'Next.js Chatbot Template',
-  description: 'Next.js chatbot template using the AI SDK.',
+  metadataBase: new URL('https://open-notion-ai.vercel.app/'),
+  title: {
+    default: 'OpenNotionAI',
+    template: '%s | OpenNotionAI',
+  },
+  description:
+    'OpenNotionAI: Open source alternative to Notion AI. Connect your LLM API (OpenAI, Anthropic, etc.) and chat with your Notion database from any device. Free, self-hostable, and private.',
+  keywords: [
+    'Notion AI',
+    'Open Source',
+    'LLM',
+    'OpenAI',
+    'Anthropic',
+    'Chat with Notion',
+    'Self-hostable AI',
+    'Private AI',
+    'Notion Database',
+    'AI Chatbot',
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: 'https://open-notion-ai.vercel.app/',
+  },
+  openGraph: {
+    title: 'OpenNotionAI',
+    description:
+      'OpenNotionAI: Open source alternative to Notion AI. Connect your LLM API and chat with your Notion database. Free, self-hostable, and private.',
+    url: 'https://open-notion-ai.vercel.app/',
+    siteName: 'OpenNotionAI',
+    images: [
+      {
+        url: '/opengraph-image.png', // Assuming you have this in your public folder
+        width: 1200,
+        height: 630,
+        alt: 'OpenNotionAI Banner',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'OpenNotionAI',
+    description:
+      'OpenNotionAI: Open source alternative to Notion AI. Connect your LLM API and chat with your Notion database. Free, self-hostable, and private.',
+    images: ['/twitter-image.png'], // Assuming you have this in your public folder
+    creator: '@yourtwitterhandle', // Replace with your actual Twitter handle
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png', // Assuming you will add this
+  },
+  manifest: '/site.webmanifest', // Assuming you will add this
 };
 
 export const viewport = {
@@ -64,6 +125,16 @@ export default async function RootLayout({
       className={`${geist.variable} ${geistMono.variable}`}
     >
       <head>
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: light)"
+          content={LIGHT_THEME_COLOR}
+        />
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: dark)"
+          content={DARK_THEME_COLOR}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: THEME_COLOR_SCRIPT,
