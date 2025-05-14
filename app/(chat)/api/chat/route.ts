@@ -28,6 +28,7 @@ import { notionGetBlockChildren } from '@/lib/ai/tools/notion-get-block-children
 import { notionPatchBlockChildren } from '@/lib/ai/tools/notion-patch-block-children';
 import { notionRetrieveABlock } from '@/lib/ai/tools/notion-retrieve-a-block';
 import { notionUpdateABlock } from '@/lib/ai/tools/notion-update-a-block';
+import { notionDeleteABlock } from '@/lib/ai/tools/notion-delete-a-block';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -186,6 +187,7 @@ export async function POST(request: Request) {
                   'notionPatchBlockChildren',
                   'notionRetrieveABlock',
                   'notionUpdateABlock',
+                  'notionDeleteABlock',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -212,6 +214,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionUpdateABlock: notionUpdateABlock({
+              notionToken: notionToken ?? null,
+            }),
+            notionDeleteABlock: notionDeleteABlock({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
