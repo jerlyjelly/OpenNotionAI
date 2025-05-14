@@ -212,6 +212,13 @@ const PurePreviewMessage = ({
                           result={result}
                           isReadonly={isReadonly}
                         />
+                      ) : toolName.startsWith('notion') &&
+                        typeof result === 'object' &&
+                        result !== null ? (
+                        <MessageReasoning
+                          isLoading={false}
+                          reasoning={JSON.stringify(result, null, 2)}
+                        />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>
                       )}

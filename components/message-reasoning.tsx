@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDownIcon, LoaderIcon } from './icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Markdown } from './markdown';
@@ -15,6 +15,23 @@ export function MessageReasoning({
   reasoning,
 }: MessageReasoningProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const prevIsLoadingRef = useRef<boolean>();
+
+  useEffect(() => {
+    const currentIsLoading = isLoading;
+    const previousIsLoading = prevIsLoadingRef.current;
+
+    if (previousIsLoading === undefined && !currentIsLoading) {
+      // First render, and it's not loading (e.g., Notion JSON output)
+      setIsExpanded(false);
+    } else if (previousIsLoading === true && !currentIsLoading) {
+      // Was loading, but now finished
+      setIsExpanded(false);
+    }
+
+    // Update ref for the next render
+    prevIsLoadingRef.current = currentIsLoading;
+  }, [isLoading]);
 
   const variants = {
     collapsed: {
