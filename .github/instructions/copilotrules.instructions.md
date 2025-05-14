@@ -39,7 +39,7 @@ applyTo: '**'
    - Use descriptive names for variables, functions, and components.
    - Add comments only when necessary to explain complex logic or non-obvious decisions, not to paraphrase code. JSDoc for public functions/components is good.
  - **Error Handling**: Implement robust error handling and provide clear feedback to the user or system when errors occur.
- - **Security**: Be mindful of security best practices, especially concerning data handling with Supabase and XSS prevention in Next.js.
+ - **Security**: Be mindful of security best practices.
 
  -- Output Format --
  - Provide code implementations directly.
