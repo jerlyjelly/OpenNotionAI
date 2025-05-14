@@ -28,6 +28,7 @@ export function Chat({
   isReadonly,
   session,
   autoResume,
+  initialNotionIsConfigured, // Add this new prop
 }: {
   id: string;
   initialMessages: Array<UIMessage>;
@@ -36,6 +37,7 @@ export function Chat({
   isReadonly: boolean;
   session: Session;
   autoResume: boolean;
+  initialNotionIsConfigured: boolean; // Define the type for the new prop
 }) {
   const { mutate } = useSWRConfig();
 
@@ -121,6 +123,7 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
           isReadonly={isReadonly}
           session={session}
+          initialNotionIsConfigured={initialNotionIsConfigured} // Pass the prop here
         />
 
         <Messages

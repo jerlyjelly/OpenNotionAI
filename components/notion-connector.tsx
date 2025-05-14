@@ -55,6 +55,17 @@ export function NotionConnector({
     }
   };
 
+  const handleSaveOnCloud = () => {
+    // In a real application, this would trigger a cloud save mechanism.
+    if (secretInputValue.trim()) {
+      console.log(
+        `Simulating save on cloud for Notion Integration Secret for chat ${chatId}: ${secretInputValue.substring(0, 5)}...`,
+      );
+      // setIsConfigured(true); // Assuming cloud save also means it's configured
+      // setOpen(false); // Close dropdown after action
+    }
+  };
+
   const handleClearSecret = () => {
     // In a real application, you would make an API call here to clear the stored secret.
     console.log(
@@ -158,13 +169,22 @@ export function NotionConnector({
             </Button>
           )}
           <Button
-            variant="default"
+            variant="secondary"
             size="sm"
             onClick={handleSaveSecret}
             disabled={!secretInputValue.trim()}
             className="w-full sm:w-auto"
           >
             {isConfigured ? 'Update Secret' : 'Save Secret'}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSaveOnCloud}
+            disabled={!secretInputValue.trim()}
+            className="w-full sm:w-auto"
+          >
+            Save on Cloud
           </Button>
         </div>
         <p className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
