@@ -1,0 +1,4227 @@
+Directory structure:
+└── suekou-mcp-notion-server/
+    ├── README.md
+    ├── LICENSE
+    ├── package.json
+    ├── tsconfig.json
+    └── src/
+        ├── client.test.ts
+        ├── index.ts
+        ├── client/
+        │   └── index.ts
+        ├── markdown/
+        │   ├── index.test.ts
+        │   └── index.ts
+        ├── server/
+        │   └── index.ts
+        ├── types/
+        │   ├── args.ts
+        │   ├── common.ts
+        │   ├── index.ts
+        │   ├── responses.ts
+        │   └── schemas.ts
+        └── utils/
+            └── index.ts
+
+================================================
+FILE: README.md
+================================================
+# Notion MCP Server
+
+MCP Server for the Notion API, enabling LLM to interact with Notion workspaces. Additionally, it employs Markdown conversion to reduce context size when communicating with LLMs, optimizing token usage and making interactions more efficient.
+
+## Setup
+
+Here is a detailed explanation of the steps mentioned above in the following articles:
+
+- English Version: https://dev.to/suekou/operating-notion-via-claude-desktop-using-mcp-c0h
+- Japanese Version: https://qiita.com/suekou/items/44c864583f5e3e6325d9
+
+1. **Create a Notion Integration**:
+
+   - Visit the [Notion Your Integrations page](https://www.notion.so/profile/integrations).
+   - Click "New Integration".
+   - Name your integration and select appropriate permissions (e.g., "Read content", "Update content").
+
+2. **Retrieve the Secret Key**:
+
+   - Copy the "Internal Integration Token" from your integration.
+   - This token will be used for authentication.
+
+3. **Add the Integration to Your Workspace**:
+
+   - Open the page or database you want the integration to access in Notion.
+   - Click the "···" button in the top right corner.
+   - Click the "Connections" button, and select the the integration you created in step 1 above.
+
+4. **Configure Claude Desktop**:
+   Add the following to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@suekou/mcp-notion-server"],
+      "env": {
+        "NOTION_API_TOKEN": "your-integration-token"
+      }
+    }
+  }
+}
+```
+
+or
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "node",
+      "args": ["your-built-file-path"],
+      "env": {
+        "NOTION_API_TOKEN": "your-integration-token"
+      }
+    }
+  }
+}
+```
+
+## Environment Variables
+
+- `NOTION_API_TOKEN` (required): Your Notion API integration token.
+- `NOTION_MARKDOWN_CONVERSION`: Set to "true" to enable experimental Markdown conversion. This can significantly reduce token consumption when viewing content, but may cause issues when trying to edit page content.
+
+## Command Line Arguments
+
+- `--enabledTools`: Comma-separated list of tools to enable (e.g. "notion_retrieve_page,notion_query_database"). When specified, only the listed tools will be available. If not specified, all tools are enabled.
+
+Read-only tools example (copy-paste friendly):
+
+```bash
+node build/index.js --enabledTools=notion_retrieve_block,notion_retrieve_block_children,notion_retrieve_page,notion_query_database,notion_retrieve_database,notion_search,notion_list_all_users,notion_retrieve_user,notion_retrieve_bot_user,notion_retrieve_comments
+```
+
+## Advanced Configuration
+
+### Markdown Conversion
+
+By default, all responses are returned in JSON format. You can enable experimental Markdown conversion to reduce token consumption:
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@suekou/mcp-notion-server"],
+      "env": {
+        "NOTION_API_TOKEN": "your-integration-token",
+        "NOTION_MARKDOWN_CONVERSION": "true"
+      }
+    }
+  }
+}
+```
+
+or
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "node",
+      "args": ["your-built-file-path"],
+      "env": {
+        "NOTION_API_TOKEN": "your-integration-token",
+        "NOTION_MARKDOWN_CONVERSION": "true"
+      }
+    }
+  }
+}
+```
+
+When `NOTION_MARKDOWN_CONVERSION` is set to `"true"`, responses will be converted to Markdown format (when `format` parameter is set to `"markdown"`), making them more human-readable and significantly reducing token consumption. However, since this feature is experimental, it may cause issues when trying to edit page content as the original structure is lost in conversion.
+
+You can control the format on a per-request basis by setting the `format` parameter to either `"json"` or `"markdown"` in your tool calls:
+
+- Use `"markdown"` for better readability when only viewing content
+- Use `"json"` when you need to modify the returned content
+
+## Troubleshooting
+
+If you encounter permission errors:
+
+1. Ensure the integration has the required permissions.
+2. Verify that the integration is invited to the relevant pages or databases.
+3. Confirm the token and configuration are correctly set in `claude_desktop_config.json`.
+
+## Project Structure
+
+The project is organized in a modular way to improve maintainability and readability:
+
+```
+./
+├── src/
+│   ├── index.ts              # Entry point and command-line handling
+│   ├── client/
+│   │   └── index.ts          # NotionClientWrapper class for API interactions
+│   ├── server/
+│   │   └── index.ts          # MCP server setup and request handling
+│   ├── types/
+│   │   ├── index.ts          # Type exports
+│   │   ├── args.ts           # Tool argument interfaces
+│   │   ├── common.ts         # Common schema definitions
+│   │   ├── responses.ts      # API response type definitions
+│   │   └── schemas.ts        # Tool schema definitions
+│   ├── utils/
+│   │   └── index.ts          # Utility functions
+│   └── markdown/
+│       └── index.ts          # Markdown conversion utilities
+```
+
+### Directory Descriptions
+
+- **index.ts**: Application entry point. Parses command-line arguments and starts the server.
+- **client/**: Module responsible for communication with the Notion API.
+  - **index.ts**: NotionClientWrapper class implements all API calls.
+- **server/**: MCP server implementation.
+  - **index.ts**: Processes requests received from Claude and calls appropriate client methods.
+- **types/**: Type definition module.
+  - **index.ts**: Exports for all types.
+  - **args.ts**: Interface definitions for tool arguments.
+  - **common.ts**: Definitions for common schemas (ID formats, rich text, etc.).
+  - **responses.ts**: Type definitions for Notion API responses.
+  - **schemas.ts**: Definitions for MCP tool schemas.
+- **utils/**: Utility functions.
+  - **index.ts**: Functions like filtering enabled tools.
+- **markdown/**: Markdown conversion functionality.
+  - **index.ts**: Logic for converting JSON responses to Markdown format.
+
+## Tools
+
+All tools support the following optional parameter:
+
+- `format` (string, "json" or "markdown", default: "markdown"): Controls the response format. Use "markdown" for human-readable output, "json" for programmatic access to the original data structure. Note: Markdown conversion only works when the `NOTION_MARKDOWN_CONVERSION` environment variable is set to "true".
+
+1. `notion_append_block_children`
+
+   - Append child blocks to a parent block.
+   - Required inputs:
+     - `block_id` (string): The ID of the parent block.
+     - `children` (array): Array of block objects to append.
+   - Returns: Information about the appended blocks.
+
+2. `notion_retrieve_block`
+
+   - Retrieve information about a specific block.
+   - Required inputs:
+     - `block_id` (string): The ID of the block to retrieve.
+   - Returns: Detailed information about the block.
+
+3. `notion_retrieve_block_children`
+
+   - Retrieve the children of a specific block.
+   - Required inputs:
+     - `block_id` (string): The ID of the parent block.
+   - Optional inputs:
+     - `start_cursor` (string): Cursor for the next page of results.
+     - `page_size` (number, default: 100, max: 100): Number of blocks to retrieve.
+   - Returns: List of child blocks.
+
+4. `notion_delete_block`
+
+   - Delete a specific block.
+   - Required inputs:
+     - `block_id` (string): The ID of the block to delete.
+   - Returns: Confirmation of the deletion.
+
+5. `notion_retrieve_page`
+
+   - Retrieve information about a specific page.
+   - Required inputs:
+     - `page_id` (string): The ID of the page to retrieve.
+   - Returns: Detailed information about the page.
+
+6. `notion_update_page_properties`
+
+   - Update properties of a page.
+   - Required inputs:
+     - `page_id` (string): The ID of the page to update.
+     - `properties` (object): Properties to update.
+   - Returns: Information about the updated page.
+
+7. `notion_create_database`
+
+   - Create a new database.
+   - Required inputs:
+     - `parent` (object): Parent object of the database.
+     - `properties` (object): Property schema of the database.
+   - Optional inputs:
+     - `title` (array): Title of the database as a rich text array.
+   - Returns: Information about the created database.
+
+8. `notion_query_database`
+
+   - Query a database.
+   - Required inputs:
+     - `database_id` (string): The ID of the database to query.
+   - Optional inputs:
+     - `filter` (object): Filter conditions.
+     - `sorts` (array): Sorting conditions.
+     - `start_cursor` (string): Cursor for the next page of results.
+     - `page_size` (number, default: 100, max: 100): Number of results to retrieve.
+   - Returns: List of results from the query.
+
+9. `notion_retrieve_database`
+
+   - Retrieve information about a specific database.
+   - Required inputs:
+     - `database_id` (string): The ID of the database to retrieve.
+   - Returns: Detailed information about the database.
+
+10. `notion_update_database`
+
+    - Update information about a database.
+    - Required inputs:
+      - `database_id` (string): The ID of the database to update.
+    - Optional inputs:
+      - `title` (array): New title for the database.
+      - `description` (array): New description for the database.
+      - `properties` (object): Updated property schema.
+    - Returns: Information about the updated database.
+
+11. `notion_create_database_item`
+
+    - Create a new item in a Notion database.
+    - Required inputs:
+      - `database_id` (string): The ID of the database to add the item to.
+      - `properties` (object): The properties of the new item. These should match the database schema.
+    - Returns: Information about the newly created item.
+
+12. `notion_search`
+
+    - Search pages or databases by title.
+    - Optional inputs:
+      - `query` (string): Text to search for in page or database titles.
+      - `filter` (object): Criteria to limit results to either only pages or only databases.
+      - `sort` (object): Criteria to sort the results
+      - `start_cursor` (string): Pagination start cursor.
+      - `page_size` (number, default: 100, max: 100): Number of results to retrieve.
+    - Returns: List of matching pages or databases.
+
+13. `notion_list_all_users`
+
+    - List all users in the Notion workspace.
+    - Note: This function requires upgrading to the Notion Enterprise plan and using an Organization API key to avoid permission errors.
+    - Optional inputs:
+      - start_cursor (string): Pagination start cursor for listing users.
+      - page_size (number, max: 100): Number of users to retrieve.
+    - Returns: A paginated list of all users in the workspace.
+
+14. `notion_retrieve_user`
+
+    - Retrieve a specific user by user_id in Notion.
+    - Note: This function requires upgrading to the Notion Enterprise plan and using an Organization API key to avoid permission errors.
+    - Required inputs:
+      - user_id (string): The ID of the user to retrieve.
+    - Returns: Detailed information about the specified user.
+
+15. `notion_retrieve_bot_user`
+
+    - Retrieve the bot user associated with the current token in Notion.
+    - Returns: Information about the bot user, including details of the person who authorized the integration.
+
+16. `notion_create_comment`
+
+    - Create a comment in Notion.
+    - Requires the integration to have 'insert comment' capabilities.
+    - Either specify a `parent` object with a `page_id` or a `discussion_id`, but not both.
+    - Required inputs:
+      - `rich_text` (array): Array of rich text objects representing the comment content.
+    - Optional inputs:
+      - `parent` (object): Must include `page_id` if used.
+      - `discussion_id` (string): An existing discussion thread ID.
+    - Returns: Information about the created comment.
+
+17. `notion_retrieve_comments`
+    - Retrieve a list of unresolved comments from a Notion page or block.
+    - Requires the integration to have 'read comment' capabilities.
+    - Required inputs:
+      - `block_id` (string): The ID of the block or page whose comments you want to retrieve.
+    - Optional inputs:
+      - `start_cursor` (string): Pagination start cursor.
+      - `page_size` (number, max: 100): Number of comments to retrieve.
+    - Returns: A paginated list of comments associated with the specified block or page.
+
+## License
+
+This MCP server is licensed under the MIT License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the MIT License. For more details, please see the LICENSE file in the project repository.
+
+
+
+================================================
+FILE: LICENSE
+================================================
+MIT License
+
+Copyright (c) 2024 suekou
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+
+================================================
+FILE: package.json
+================================================
+{
+  "name": "@suekou/mcp-notion-server",
+  "version": "1.2.4",
+  "description": "MCP server for interacting with Notion API based on Node",
+  "license": "MIT",
+  "author": "Kosuke Suenaga (https://github.com/suekou/mcp-notion-server)",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "mcp-notion-server": "build/index.js"
+  },
+  "files": [
+    "build",
+    "Readme.md"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.2",
+    "node-fetch": "^2.7.0",
+    "vitest": "3.0.9",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/node-fetch": "^2.6.12",
+    "@types/yargs": "^17.0.33",
+    "typescript": "^5.3.3"
+  }
+}
+
+
+
+================================================
+FILE: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "./build",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+
+
+
+================================================
+FILE: src/client.test.ts
+================================================
+import { expect, test, describe, vi, beforeEach } from "vitest";
+import { NotionClientWrapper } from "./client/index.js";
+import { PageResponse } from "./types/index.js";
+import { filterTools } from "./utils/index.js";
+import fetch from "node-fetch";
+
+vi.mock("./markdown/index.js", () => ({
+  convertToMarkdown: vi.fn().mockReturnValue("# Test"),
+}));
+
+vi.mock("node-fetch", () => {
+  return {
+    default: vi.fn(),
+  };
+});
+
+// Mock tool list
+const mockInputSchema = { type: "object" as const };
+const mockTools = [
+  {
+    name: "notion_retrieve_block",
+    inputSchema: mockInputSchema,
+  },
+  {
+    name: "notion_retrieve_page",
+    inputSchema: mockInputSchema,
+  },
+  {
+    name: "notion_query_database",
+    inputSchema: mockInputSchema,
+  },
+];
+
+describe("NotionClientWrapper", () => {
+  let wrapper: any;
+
+  beforeEach(() => {
+    // Reset mocks
+    vi.resetAllMocks();
+
+    // Create client wrapper with test token
+    wrapper = new NotionClientWrapper("test-token");
+
+    // Mock fetch to return JSON
+    (fetch as any).mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ success: true }),
+      })
+    );
+  });
+
+  test("should initialize with correct headers", () => {
+    expect((wrapper as any).headers).toEqual({
+      Authorization: "Bearer test-token",
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+    });
+  });
+
+  test("should call appendBlockChildren with correct parameters", async () => {
+    const blockId = "block123";
+    const children = [{ type: "paragraph" }];
+
+    await wrapper.appendBlockChildren(blockId, children);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/blocks/${blockId}/children`,
+      {
+        method: "PATCH",
+        headers: (wrapper as any).headers,
+        body: JSON.stringify({ children }),
+      }
+    );
+  });
+
+  test("should call retrieveBlock with correct parameters", async () => {
+    const blockId = "block123";
+
+    await wrapper.retrieveBlock(blockId);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/blocks/${blockId}`,
+      {
+        method: "GET",
+        headers: (wrapper as any).headers,
+      }
+    );
+  });
+
+  test("should call retrieveBlockChildren with pagination parameters", async () => {
+    const blockId = "block123";
+    const startCursor = "cursor123";
+    const pageSize = 10;
+
+    await wrapper.retrieveBlockChildren(blockId, startCursor, pageSize);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/blocks/${blockId}/children?start_cursor=${startCursor}&page_size=${pageSize}`,
+      {
+        method: "GET",
+        headers: (wrapper as any).headers,
+      }
+    );
+  });
+
+  test("should call retrievePage with correct parameters", async () => {
+    const pageId = "page123";
+
+    await wrapper.retrievePage(pageId);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      {
+        method: "GET",
+        headers: (wrapper as any).headers,
+      }
+    );
+  });
+
+  test("should call updatePageProperties with correct parameters", async () => {
+    const pageId = "page123";
+    const properties = {
+      title: { title: [{ text: { content: "New Title" } }] },
+    };
+
+    await wrapper.updatePageProperties(pageId, properties);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      {
+        method: "PATCH",
+        headers: (wrapper as any).headers,
+        body: JSON.stringify({ properties }),
+      }
+    );
+  });
+
+  test("should call queryDatabase with correct parameters", async () => {
+    const databaseId = "db123";
+    const filter = { property: "Status", equals: "Done" };
+    const sorts = [{ property: "Due Date", direction: "ascending" }];
+
+    await wrapper.queryDatabase(databaseId, filter, sorts);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `https://api.notion.com/v1/databases/${databaseId}/query`,
+      {
+        method: "POST",
+        headers: (wrapper as any).headers,
+        body: JSON.stringify({ filter, sorts }),
+      }
+    );
+  });
+
+  test("should call search with correct parameters", async () => {
+    const query = "test query";
+    const filter = { property: "object", value: "page" };
+
+    await wrapper.search(query, filter);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.notion.com/v1/search",
+      {
+        method: "POST",
+        headers: (wrapper as any).headers,
+        body: JSON.stringify({ query, filter }),
+      }
+    );
+  });
+
+  test("should call toMarkdown method correctly", async () => {
+    const { convertToMarkdown } = await import("./markdown/index.js");
+
+    const response: PageResponse = {
+      object: "page",
+      id: "test",
+      created_time: "2021-01-01T00:00:00.000Z",
+      last_edited_time: "2021-01-01T00:00:00.000Z",
+      parent: {
+        type: "workspace",
+      },
+      properties: {},
+    };
+    await wrapper.toMarkdown(response);
+
+    expect(convertToMarkdown).toHaveBeenCalledWith(response);
+  });
+
+  describe("filterTools", () => {
+    test("should return all tools when no filter specified", () => {
+      const result = filterTools(mockTools);
+      expect(result).toEqual(mockTools);
+    });
+
+    test("should filter tools based on enabledTools", () => {
+      const enabledToolsSet = new Set([
+        "notion_retrieve_block",
+        "notion_query_database",
+      ]);
+      const result = filterTools(mockTools, enabledToolsSet);
+      expect(result).toEqual([
+        { name: "notion_retrieve_block", inputSchema: mockInputSchema },
+        { name: "notion_query_database", inputSchema: mockInputSchema },
+      ]);
+    });
+
+    test("should return empty array when no tools match", () => {
+      const enabledToolsSet = new Set(["non_existent_tool"]);
+      const result = filterTools(mockTools, enabledToolsSet);
+      expect(result).toEqual([]);
+    });
+  });
+});
+
+
+
+================================================
+FILE: src/index.ts
+================================================
+#!/usr/bin/env node
+/**
+ * All API endpoints support both JSON and Markdown response formats.
+ * Set the "format" parameter to "json" or "markdown" (default is "markdown").
+ * - Use "markdown" for human-readable output when only reading content
+ * - Use "json" when you need to process or modify the data programmatically
+ *
+ * Command-line Arguments:
+ * --enabledTools: Comma-separated list of tools to enable (e.g. "notion_retrieve_page,notion_query_database")
+ *
+ * Environment Variables:
+ * - NOTION_API_TOKEN: Required. Your Notion API integration token.
+ * - NOTION_MARKDOWN_CONVERSION: Optional. Set to "true" to enable
+ *   experimental Markdown conversion. If not set or set to any other value,
+ *   all responses will be in JSON format regardless of the "format" parameter.
+ */
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import { startServer } from "./server/index.js";
+
+// Parse command line arguments
+const argv = yargs(hideBin(process.argv))
+  .option("enabledTools", {
+    type: "string",
+    description: "Comma-separated list of tools to enable",
+  })
+  .parseSync();
+
+const enabledToolsSet = new Set(
+  argv.enabledTools ? argv.enabledTools.split(",") : []
+);
+
+// if test environment, do not execute main()
+if (process.env.NODE_ENV !== "test" && process.env.VITEST !== "true") {
+  main().catch((error) => {
+    console.error("Fatal error in main():", error);
+    process.exit(1);
+  });
+}
+
+async function main() {
+  const notionToken = process.env.NOTION_API_TOKEN;
+  const enableMarkdownConversion =
+    process.env.NOTION_MARKDOWN_CONVERSION === "true";
+
+  if (!notionToken) {
+    console.error("Please set NOTION_API_TOKEN environment variable");
+    process.exit(1);
+  }
+
+  await startServer(notionToken, enabledToolsSet, enableMarkdownConversion);
+}
+
+
+
+================================================
+FILE: src/client/index.ts
+================================================
+/**
+ * Notion API client wrapper
+ */
+
+import { convertToMarkdown } from "../markdown/index.js";
+import {
+  NotionResponse,
+  BlockResponse,
+  PageResponse,
+  DatabaseResponse,
+  ListResponse,
+  UserResponse,
+  CommentResponse,
+  RichTextItemResponse,
+  CreateDatabaseArgs,
+} from "../types/index.js";
+import fetch from "node-fetch";
+
+export class NotionClientWrapper {
+  private notionToken: string;
+  private baseUrl: string = "https://api.notion.com/v1";
+  private headers: { [key: string]: string };
+
+  constructor(token: string) {
+    this.notionToken = token;
+    this.headers = {
+      Authorization: `Bearer ${this.notionToken}`,
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+    };
+  }
+
+  async appendBlockChildren(
+    block_id: string,
+    children: Partial<BlockResponse>[]
+  ): Promise<BlockResponse> {
+    const body = { children };
+
+    const response = await fetch(
+      `${this.baseUrl}/blocks/${block_id}/children`,
+      {
+        method: "PATCH",
+        headers: this.headers,
+        body: JSON.stringify(body),
+      }
+    );
+
+    return response.json();
+  }
+
+  async retrieveBlock(block_id: string): Promise<BlockResponse> {
+    const response = await fetch(`${this.baseUrl}/blocks/${block_id}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+
+    return response.json();
+  }
+
+  async retrieveBlockChildren(
+    block_id: string,
+    start_cursor?: string,
+    page_size?: number
+  ): Promise<ListResponse> {
+    const params = new URLSearchParams();
+    if (start_cursor) params.append("start_cursor", start_cursor);
+    if (page_size) params.append("page_size", page_size.toString());
+
+    const response = await fetch(
+      `${this.baseUrl}/blocks/${block_id}/children?${params}`,
+      {
+        method: "GET",
+        headers: this.headers,
+      }
+    );
+
+    return response.json();
+  }
+
+  async deleteBlock(block_id: string): Promise<BlockResponse> {
+    const response = await fetch(`${this.baseUrl}/blocks/${block_id}`, {
+      method: "DELETE",
+      headers: this.headers,
+    });
+
+    return response.json();
+  }
+
+  async updateBlock(
+    block_id: string,
+    block: Partial<BlockResponse>
+  ): Promise<BlockResponse> {
+    const response = await fetch(`${this.baseUrl}/blocks/${block_id}`, {
+      method: "PATCH",
+      headers: this.headers,
+      body: JSON.stringify(block),
+    });
+
+    return response.json();
+  }
+
+  async retrievePage(page_id: string): Promise<PageResponse> {
+    const response = await fetch(`${this.baseUrl}/pages/${page_id}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+
+    return response.json();
+  }
+
+  async updatePageProperties(
+    page_id: string,
+    properties: Record<string, any>
+  ): Promise<PageResponse> {
+    const body = { properties };
+
+    const response = await fetch(`${this.baseUrl}/pages/${page_id}`, {
+      method: "PATCH",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async listAllUsers(
+    start_cursor?: string,
+    page_size?: number
+  ): Promise<ListResponse> {
+    const params = new URLSearchParams();
+    if (start_cursor) params.append("start_cursor", start_cursor);
+    if (page_size) params.append("page_size", page_size.toString());
+
+    const response = await fetch(`${this.baseUrl}/users?${params.toString()}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+    return response.json();
+  }
+
+  async retrieveUser(user_id: string): Promise<UserResponse> {
+    const response = await fetch(`${this.baseUrl}/users/${user_id}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+    return response.json();
+  }
+
+  async retrieveBotUser(): Promise<UserResponse> {
+    const response = await fetch(`${this.baseUrl}/users/me`, {
+      method: "GET",
+      headers: this.headers,
+    });
+    return response.json();
+  }
+
+  async createDatabase(
+    parent: CreateDatabaseArgs["parent"],
+    properties: Record<string, any>,
+    title?: RichTextItemResponse[]
+  ): Promise<DatabaseResponse> {
+    const body = { parent, title, properties };
+
+    const response = await fetch(`${this.baseUrl}/databases`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async queryDatabase(
+    database_id: string,
+    filter?: Record<string, any>,
+    sorts?: Array<{
+      property?: string;
+      timestamp?: string;
+      direction: "ascending" | "descending";
+    }>,
+    start_cursor?: string,
+    page_size?: number
+  ): Promise<ListResponse> {
+    const body: Record<string, any> = {};
+    if (filter) body.filter = filter;
+    if (sorts) body.sorts = sorts;
+    if (start_cursor) body.start_cursor = start_cursor;
+    if (page_size) body.page_size = page_size;
+
+    const response = await fetch(
+      `${this.baseUrl}/databases/${database_id}/query`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(body),
+      }
+    );
+
+    return response.json();
+  }
+
+  async retrieveDatabase(database_id: string): Promise<DatabaseResponse> {
+    const response = await fetch(`${this.baseUrl}/databases/${database_id}`, {
+      method: "GET",
+      headers: this.headers,
+    });
+
+    return response.json();
+  }
+
+  async updateDatabase(
+    database_id: string,
+    title?: RichTextItemResponse[],
+    description?: RichTextItemResponse[],
+    properties?: Record<string, any>
+  ): Promise<DatabaseResponse> {
+    const body: Record<string, any> = {};
+    if (title) body.title = title;
+    if (description) body.description = description;
+    if (properties) body.properties = properties;
+
+    const response = await fetch(`${this.baseUrl}/databases/${database_id}`, {
+      method: "PATCH",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async createDatabaseItem(
+    database_id: string,
+    properties: Record<string, any>
+  ): Promise<PageResponse> {
+    const body = {
+      parent: { database_id },
+      properties,
+    };
+
+    const response = await fetch(`${this.baseUrl}/pages`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async createComment(
+    parent?: { page_id: string },
+    discussion_id?: string,
+    rich_text?: RichTextItemResponse[]
+  ): Promise<CommentResponse> {
+    const body: Record<string, any> = { rich_text };
+    if (parent) {
+      body.parent = parent;
+    }
+    if (discussion_id) {
+      body.discussion_id = discussion_id;
+    }
+
+    const response = await fetch(`${this.baseUrl}/comments`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async retrieveComments(
+    block_id: string,
+    start_cursor?: string,
+    page_size?: number
+  ): Promise<ListResponse> {
+    const params = new URLSearchParams();
+    params.append("block_id", block_id);
+    if (start_cursor) params.append("start_cursor", start_cursor);
+    if (page_size) params.append("page_size", page_size.toString());
+
+    const response = await fetch(
+      `${this.baseUrl}/comments?${params.toString()}`,
+      {
+        method: "GET",
+        headers: this.headers,
+      }
+    );
+
+    return response.json();
+  }
+
+  async search(
+    query?: string,
+    filter?: { property: string; value: string },
+    sort?: {
+      direction: "ascending" | "descending";
+      timestamp: "last_edited_time";
+    },
+    start_cursor?: string,
+    page_size?: number
+  ): Promise<ListResponse> {
+    const body: Record<string, any> = {};
+    if (query) body.query = query;
+    if (filter) body.filter = filter;
+    if (sort) body.sort = sort;
+    if (start_cursor) body.start_cursor = start_cursor;
+    if (page_size) body.page_size = page_size;
+
+    const response = await fetch(`${this.baseUrl}/search`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    return response.json();
+  }
+
+  async toMarkdown(response: NotionResponse): Promise<string> {
+    return convertToMarkdown(response);
+  }
+}
+
+
+
+================================================
+FILE: src/markdown/index.test.ts
+================================================
+import { expect, test, describe } from "vitest";
+import { convertToMarkdown } from "./index.js";
+import {
+  PageResponse,
+  BlockResponse,
+  DatabaseResponse,
+  ListResponse,
+} from "../types/index.js";
+
+describe("convertToMarkdown", () => {
+  test("should handle null or undefined response", () => {
+    // @ts-ignore - intentionally testing with null
+    expect(convertToMarkdown(null)).toBe("");
+    // @ts-ignore - intentionally testing with undefined
+    expect(convertToMarkdown(undefined)).toBe("");
+  });
+
+  test("should convert a page response to markdown", () => {
+    // ref: https://developers.notion.com/reference/page
+    const pageResponse: PageResponse = {
+      object: "page",
+      id: "be633bf1-dfa0-436d-b259-571129a590e5",
+      created_time: "2022-10-24T22:54:00.000Z",
+      last_edited_time: "2023-03-08T18:25:00.000Z",
+      created_by: {
+        object: "user",
+        id: "c2f20311-9e54-4d11-8c79-7398424ae41e",
+      },
+      last_edited_by: {
+        object: "user",
+        id: "9188c6a5-7381-452f-b3dc-d4865aa89bdf",
+      },
+      cover: null,
+      icon: {
+        type: "emoji",
+        emoji: "🐞",
+      },
+      parent: {
+        type: "database_id",
+        database_id: "a1d8501e-1ac1-43e9-a6bd-ea9fe6c8822b",
+      },
+      archived: true,
+      in_trash: true,
+      properties: {
+        "Due date": {
+          id: "M%3BBw",
+          type: "date",
+          date: {
+            start: "2023-02-23",
+            end: null,
+            time_zone: null,
+          },
+        },
+        Status: {
+          id: "Z%3ClH",
+          type: "status",
+          status: {
+            id: "86ddb6ec-0627-47f8-800d-b65afd28be13",
+            name: "Not started",
+            color: "default",
+          },
+        },
+        Title: {
+          id: "title",
+          type: "title",
+          title: [
+            {
+              type: "text",
+              text: {
+                content: "Bug bash",
+                link: null,
+              },
+              annotations: {
+                bold: false,
+                italic: false,
+                strikethrough: false,
+                underline: false,
+                code: false,
+                color: "default",
+              },
+              plain_text: "Bug bash",
+              href: null,
+            },
+          ],
+        },
+      },
+      url: "https://www.notion.so/Bug-bash-be633bf1dfa0436db259571129a590e5",
+      public_url:
+        "https://jm-testing.notion.site/p1-6df2c07bfc6b4c46815ad205d132e22d",
+    };
+
+    const markdown = convertToMarkdown(pageResponse);
+
+    // More detailed verification
+    expect(markdown).toMatch(/^# Bug bash\n\n/); // Check if title is correctly processed
+    expect(markdown).toMatch(/## Properties\n\n/); // Check if properties section exists
+    expect(markdown).toMatch(/\| Property \| Value \|\n\|\-+\|\-+\|/); // Check if property table header is correct
+    expect(markdown).toMatch(/\| Due date \| 2023-02-23 \|/); // Check if date property is correctly displayed
+    expect(markdown).toMatch(/\| Status \| Not started \|/); // Check if status property is correctly displayed
+    expect(markdown).toMatch(/\| Title \| Bug bash \|/); // Check if title property is correctly displayed
+    expect(markdown).toMatch(/> This page contains child blocks/); // Check if note about child blocks exists
+    expect(markdown).toMatch(
+      /> Block ID: `be633bf1-dfa0-436d-b259-571129a590e5`/
+    ); // Check if block ID is correctly displayed
+    expect(markdown).toMatch(
+      /\[View in Notion\]\(https:\/\/www\.notion\.so\/Bug-bash-be633bf1dfa0436db259571129a590e5\)/
+    ); // Check if link to Notion is correctly displayed
+  });
+
+  test("should convert a block response to markdown", () => {
+    // ref: https://developers.notion.com/reference/block
+    const blockResponse: BlockResponse = {
+      object: "block",
+      id: "c02fc1d3-db8b-45c5-a222-27595b15aea7",
+      parent: {
+        type: "page_id",
+        page_id: "59833787-2cf9-4fdf-8782-e53db20768a5",
+      },
+      created_time: "2022-03-01T19:05:00.000Z",
+      last_edited_time: "2022-07-06T19:41:00.000Z",
+      created_by: {
+        object: "user",
+        id: "ee5f0f84-409a-440f-983a-a5315961c6e4",
+      },
+      last_edited_by: {
+        object: "user",
+        id: "ee5f0f84-409a-440f-983a-a5315961c6e4",
+      },
+      has_children: false,
+      archived: false,
+      in_trash: false,
+      type: "heading_2",
+      heading_2: {
+        rich_text: [
+          {
+            type: "text",
+            text: {
+              content: "Lacinato kale",
+              link: null,
+            },
+            annotations: {
+              bold: false,
+              italic: false,
+              strikethrough: false,
+              underline: false,
+              code: false,
+              color: "green",
+            },
+            plain_text: "Lacinato kale",
+            href: null,
+          },
+        ],
+        color: "default",
+        is_toggleable: false,
+      },
+    };
+
+    const markdown = convertToMarkdown(blockResponse);
+
+    // Check if it's correctly displayed as a heading 2
+    expect(markdown).toBe("## Lacinato kale");
+  });
+
+  test("should convert a database response to markdown", () => {
+    // ref: https://developers.notion.com/reference/create-a-database response 200 - Result
+    const databaseResponse: DatabaseResponse = {
+      object: "database",
+      id: "bc1211ca-e3f1-4939-ae34-5260b16f627c",
+      created_time: "2021-07-08T23:50:00.000Z",
+      last_edited_time: "2021-07-08T23:50:00.000Z",
+      icon: {
+        type: "emoji",
+        emoji: "🎉",
+      },
+      cover: {
+        type: "external",
+        external: {
+          url: "https://website.domain/images/image.png",
+        },
+      },
+      url: "https://www.notion.so/bc1211cae3f14939ae34260b16f627c",
+      title: [
+        {
+          type: "text",
+          text: {
+            content: "Grocery List",
+            link: null,
+          },
+          annotations: {
+            bold: false,
+            italic: false,
+            strikethrough: false,
+            underline: false,
+            code: false,
+            color: "default",
+          },
+          plain_text: "Grocery List",
+          href: null,
+        },
+      ],
+      properties: {
+        "+1": {
+          id: "Wp%3DC",
+          name: "+1",
+          type: "people",
+          people: {},
+        },
+        "In stock": {
+          id: "fk%5EY",
+          name: "In stock",
+          type: "checkbox",
+          checkbox: {},
+        },
+        Price: {
+          id: "evWq",
+          name: "Price",
+          type: "number",
+          number: {
+            format: "dollar",
+          },
+        },
+        Description: {
+          id: "V}lX",
+          name: "Description",
+          type: "rich_text",
+          rich_text: {},
+        },
+        "Last ordered": {
+          id: "eVnV",
+          name: "Last ordered",
+          type: "date",
+          date: {},
+        },
+        Meals: {
+          id: "%7DWA~",
+          name: "Meals",
+          type: "relation",
+          relation: {
+            database_id: "668d797c-76fa-4934-9b05-ad288df2d136",
+            synced_property_name: "Related to Grocery List (Meals)",
+          },
+        },
+        "Number of meals": {
+          id: "Z\\Eh",
+          name: "Number of meals",
+          type: "rollup",
+          rollup: {
+            rollup_property_name: "Name",
+            relation_property_name: "Meals",
+            rollup_property_id: "title",
+            relation_property_id: "mxp^",
+            function: "count",
+          },
+        },
+        "Store availability": {
+          id: "s}Kq",
+          name: "Store availability",
+          type: "multi_select",
+          multi_select: {
+            options: [
+              {
+                id: "cb79b393-d1c1-4528-b517-c450859de766",
+                name: "Duc Loi Market",
+                color: "blue",
+              },
+              {
+                id: "58aae162-75d4-403b-a793-3bc7308e4cd2",
+                name: "Rainbow Grocery",
+                color: "gray",
+              },
+              {
+                id: "22d0f199-babc-44ff-bd80-a9eae3e3fcbf",
+                name: "Nijiya Market",
+                color: "purple",
+              },
+              {
+                id: "0d069987-ffb0-4347-bde2-8e4068003dbc",
+                name: "Gus's Community Market",
+                color: "yellow",
+              },
+            ],
+          },
+        },
+        Photo: {
+          id: "yfiK",
+          name: "Photo",
+          type: "files",
+          files: {},
+        },
+        "Food group": {
+          id: "CM%3EH",
+          name: "Food group",
+          type: "select",
+          select: {
+            options: [
+              {
+                id: "6d4523fa-88cb-4ffd-9364-1e39d0f4e566",
+                name: "🥦Vegetable",
+                color: "green",
+              },
+              {
+                id: "268d7e75-de8f-4c4b-8b9d-de0f97021833",
+                name: "🍎Fruit",
+                color: "red",
+              },
+              {
+                id: "1b234a00-dc97-489c-b987-829264cfdfef",
+                name: "💪Protein",
+                color: "yellow",
+              },
+            ],
+          },
+        },
+        Name: {
+          id: "title",
+          name: "Name",
+          type: "title",
+          title: {},
+        },
+      },
+      parent: {
+        type: "page_id",
+        page_id: "98ad959b-2b6a-4774-80ee-00246fb0ea9b",
+      },
+      archived: false,
+      is_inline: false,
+    };
+
+    const markdown = convertToMarkdown(databaseResponse);
+
+    // More detailed verification
+    expect(markdown).toMatch(/^# Grocery List \(Database\)\n\n/); // Check if title is correctly processed
+    expect(markdown).toMatch(/## Properties\n\n/); // Check if properties section exists
+    expect(markdown).toMatch(
+      /\| Property Name \| Type \| Details \|\n\|\-+\|\-+\|\-+\|/
+    ); // Check if property table is correct
+
+    // Check if each property is correctly displayed
+    expect(markdown).toMatch(/\| \\\+1 \| people \| /); // +1 property
+    expect(markdown).toMatch(/\| In stock \| checkbox \| /); // In stock property
+    expect(markdown).toMatch(/\| Price \| number \| /); // Price property
+    expect(markdown).toMatch(
+      /\| Store availability \| multi_select \| Options: Duc Loi Market, Rainbow Grocery, Nijiya Market, Gus's Community Market \|/
+    ); // Property with options
+    expect(markdown).toMatch(
+      /\| Food group \| select \| Options: 🥦Vegetable, 🍎Fruit, 💪Protein \|/
+    ); // Options with emoji
+    expect(markdown).toMatch(
+      /\| Meals \| relation \| Related DB: 668d797c-76fa-4934-9b05-ad288df2d136 \|/
+    ); // Relation
+
+    // Check if link to Notion is correctly displayed
+    expect(markdown).toMatch(
+      /\[View in Notion\]\(https:\/\/www\.notion\.so\/bc1211cae3f14939ae34260b16f627c\)/
+    );
+  });
+
+  test("should convert a list response to markdown", () => {
+    // ref: https://developers.notion.com/reference/post-search response 200 - Result
+    const listResponse: ListResponse = {
+      object: "list",
+      results: [
+        {
+          object: "page",
+          id: "954b67f9-3f87-41db-8874-23b92bbd31ee",
+          created_time: "2022-07-06T19:30:00.000Z",
+          last_edited_time: "2022-07-06T19:30:00.000Z",
+          created_by: {
+            object: "user",
+            id: "ee5f0f84-409a-440f-983a-a5315961c6e4",
+          },
+          last_edited_by: {
+            object: "user",
+            id: "ee5f0f84-409a-440f-983a-a5315961c6e4",
+          },
+          cover: {
+            type: "external",
+            external: {
+              url: "https://upload.wikimedia.org/wikipedia/commons/6/62/Tuscankale.jpg",
+            },
+          },
+          icon: {
+            type: "emoji",
+            emoji: "🥬",
+          },
+          parent: {
+            type: "database_id",
+            database_id: "d9824bdc-8445-4327-be8b-5b47500af6ce",
+          },
+          archived: false,
+          properties: {
+            "Store availability": {
+              id: "%3AUPp",
+              type: "multi_select",
+              multi_select: [],
+            },
+            "Food group": {
+              id: "A%40Hk",
+              type: "select",
+              select: {
+                id: "5e8e7e8f-432e-4d8a-8166-1821e10225fc",
+                name: "🥬 Vegetable",
+                color: "pink",
+              },
+            },
+            Price: {
+              id: "BJXS",
+              type: "number",
+              number: null,
+            },
+            "Responsible Person": {
+              id: "Iowm",
+              type: "people",
+              people: [],
+            },
+            "Last ordered": {
+              id: "Jsfb",
+              type: "date",
+              date: null,
+            },
+            "Cost of next trip": {
+              id: "WOd%3B",
+              type: "formula",
+              formula: {
+                type: "number",
+                number: null,
+              },
+            },
+            Recipes: {
+              id: "YfIu",
+              type: "relation",
+              relation: [],
+            },
+            Description: {
+              id: "_Tc_",
+              type: "rich_text",
+              rich_text: [
+                {
+                  type: "text",
+                  text: {
+                    content: "A dark green leafy vegetable",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "default",
+                  },
+                  plain_text: "A dark green leafy vegetable",
+                  href: null,
+                },
+              ],
+            },
+            "In stock": {
+              id: "%60%5Bq%3F",
+              type: "checkbox",
+              checkbox: false,
+            },
+            "Number of meals": {
+              id: "zag~",
+              type: "rollup",
+              rollup: {
+                type: "number",
+                number: 0,
+                function: "count",
+              },
+            },
+            Photo: {
+              id: "%7DF_L",
+              type: "url",
+              url: null,
+            },
+            Name: {
+              id: "title",
+              type: "title",
+              title: [
+                {
+                  type: "text",
+                  text: {
+                    content: "Tuscan kale",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "default",
+                  },
+                  plain_text: "Tuscan kale",
+                  href: null,
+                },
+              ],
+            },
+          },
+          url: "https://www.notion.so/Tuscan-kale-954b67f93f8741db887423b92bbd31ee",
+        },
+        {
+          object: "page",
+          id: "59833787-2cf9-4fdf-8782-e53db20768a5",
+          created_time: "2022-03-01T19:05:00.000Z",
+          last_edited_time: "2022-07-06T20:25:00.000Z",
+          created_by: {
+            object: "user",
+            id: "ee5f0f84-409a-440f-983a-a5315961c6e4",
+          },
+          last_edited_by: {
+            object: "user",
+            id: "0c3e9826-b8f7-4f73-927d-2caaf86f1103",
+          },
+          cover: {
+            type: "external",
+            external: {
+              url: "https://upload.wikimedia.org/wikipedia/commons/6/62/Tuscankale.jpg",
+            },
+          },
+          icon: {
+            type: "emoji",
+            emoji: "🥬",
+          },
+          parent: {
+            type: "database_id",
+            database_id: "d9824bdc-8445-4327-be8b-5b47500af6ce",
+          },
+          archived: false,
+          properties: {
+            "Store availability": {
+              id: "%3AUPp",
+              type: "multi_select",
+              multi_select: [
+                {
+                  id: "t|O@",
+                  name: "Gus's Community Market",
+                  color: "yellow",
+                },
+                {
+                  id: "{Ml\\",
+                  name: "Rainbow Grocery",
+                  color: "gray",
+                },
+              ],
+            },
+            "Food group": {
+              id: "A%40Hk",
+              type: "select",
+              select: {
+                id: "5e8e7e8f-432e-4d8a-8166-1821e10225fc",
+                name: "🥬 Vegetable",
+                color: "pink",
+              },
+            },
+            Price: {
+              id: "BJXS",
+              type: "number",
+              number: 2.5,
+            },
+            "Responsible Person": {
+              id: "Iowm",
+              type: "people",
+              people: [
+                {
+                  object: "user",
+                  id: "cbfe3c6e-71cf-4cd3-b6e7-02f38f371bcc",
+                  name: "Cristina Cordova",
+                  avatar_url:
+                    "https://lh6.googleusercontent.com/-rapvfCoTq5A/AAAAAAAAAAI/AAAAAAAAAAA/AKF05nDKmmUpkpFvWNBzvu9rnZEy7cbl8Q/photo.jpg",
+                  type: "person",
+                  person: {
+                    email: "cristina@makenotion.com",
+                  },
+                },
+              ],
+            },
+            "Last ordered": {
+              id: "Jsfb",
+              type: "date",
+              date: {
+                start: "2022-02-22",
+                end: null,
+                time_zone: null,
+              },
+            },
+            "Cost of next trip": {
+              id: "WOd%3B",
+              type: "formula",
+              formula: {
+                type: "number",
+                number: 0,
+              },
+            },
+            Recipes: {
+              id: "YfIu",
+              type: "relation",
+              relation: [
+                {
+                  id: "90eeeed8-2cdd-4af4-9cc1-3d24aff5f63c",
+                },
+                {
+                  id: "a2da43ee-d43c-4285-8ae2-6d811f12629a",
+                },
+              ],
+              has_more: false,
+            },
+            Description: {
+              id: "_Tc_",
+              type: "rich_text",
+              rich_text: [
+                {
+                  type: "text",
+                  text: {
+                    content: "A dark ",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "default",
+                  },
+                  plain_text: "A dark ",
+                  href: null,
+                },
+                {
+                  type: "text",
+                  text: {
+                    content: "green",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "green",
+                  },
+                  plain_text: "green",
+                  href: null,
+                },
+                {
+                  type: "text",
+                  text: {
+                    content: " leafy vegetable",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "default",
+                  },
+                  plain_text: " leafy vegetable",
+                  href: null,
+                },
+              ],
+            },
+            "In stock": {
+              id: "%60%5Bq%3F",
+              type: "checkbox",
+              checkbox: true,
+            },
+            "Number of meals": {
+              id: "zag~",
+              type: "rollup",
+              rollup: {
+                type: "number",
+                number: 2,
+                function: "count",
+              },
+            },
+            Photo: {
+              id: "%7DF_L",
+              type: "url",
+              url: "https://i.insider.com/612fb23c9ef1e50018f93198?width=1136&format=jpeg",
+            },
+            Name: {
+              id: "title",
+              type: "title",
+              title: [
+                {
+                  type: "text",
+                  text: {
+                    content: "Tuscan kale",
+                    link: null,
+                  },
+                  annotations: {
+                    bold: false,
+                    italic: false,
+                    strikethrough: false,
+                    underline: false,
+                    code: false,
+                    color: "default",
+                  },
+                  plain_text: "Tuscan kale",
+                  href: null,
+                },
+              ],
+            },
+          },
+          url: "https://www.notion.so/Tuscan-kale-598337872cf94fdf8782e53db20768a5",
+        },
+      ],
+      next_cursor: null,
+      has_more: false,
+      type: "page_or_database",
+      page_or_database: {},
+    };
+
+    const markdown = convertToMarkdown(listResponse);
+
+    // More detailed verification
+    expect(markdown).toMatch(/^# Search Results \(Pages\)\n\n/); // Check if header is correct
+
+    // Check if title and link for each page in the search results are included
+    expect(markdown).toMatch(
+      /## \[Tuscan kale\]\(https:\/\/www\.notion\.so\/Tuscan-kale-954b67f93f8741db887423b92bbd31ee\)/
+    ); // First page
+    expect(markdown).toMatch(/ID: `954b67f9-3f87-41db-8874-23b92bbd31ee`/); // First page ID
+
+    expect(markdown).toMatch(
+      /## \[Tuscan kale\]\(https:\/\/www\.notion\.so\/Tuscan-kale-598337872cf94fdf8782e53db20768a5\)/
+    ); // Second page
+    expect(markdown).toMatch(/ID: `59833787-2cf9-4fdf-8782-e53db20768a5`/); // Second page ID
+
+    // Check if each result is separated by a divider line
+    expect(markdown).toMatch(/---\n\n/);
+
+    // Check that pagination info is not present (because has_more is false)
+    expect(markdown).not.toMatch(/More results available/);
+  });
+
+  test("should convert unknown object type to JSON", () => {
+    const unknownResponse = {
+      object: "unknown",
+      id: "unknown123",
+    };
+
+    // @ts-ignore - intentionally testing with unknown type
+    const markdown = convertToMarkdown(unknownResponse);
+
+    expect(markdown).toMatch(/^```json\n/); // JSON code block start
+    expect(markdown).toMatch(/"object": "unknown"/); // Object type
+    expect(markdown).toMatch(/"id": "unknown123"/); // ID
+    expect(markdown).toMatch(/\n```$/); // JSON code block end
+  });
+});
+
+
+
+================================================
+FILE: src/markdown/index.ts
+================================================
+/**
+ * Utilities for converting Notion API responses to Markdown
+ */
+import {
+  NotionResponse,
+  PageResponse,
+  DatabaseResponse,
+  BlockResponse,
+  ListResponse,
+  RichTextItemResponse,
+  PageProperty,
+} from "../types/index.js";
+
+/**
+ * Converts Notion API response to Markdown
+ * @param response Response from Notion API
+ * @returns Markdown formatted string
+ */
+export function convertToMarkdown(response: NotionResponse): string {
+  // Execute appropriate conversion process based on response type
+  if (!response) return "";
+
+  // Branch processing by object type
+  switch (response.object) {
+    case "page":
+      return convertPageToMarkdown(response as PageResponse);
+    case "database":
+      return convertDatabaseToMarkdown(response as DatabaseResponse);
+    case "block":
+      return convertBlockToMarkdown(response as BlockResponse);
+    case "list":
+      return convertListToMarkdown(response as ListResponse);
+    default:
+      // Return JSON string if conversion is not possible
+      return `\`\`\`json\n${JSON.stringify(response, null, 2)}\n\`\`\``;
+  }
+}
+
+/**
+ * Converts a Notion page to Markdown
+ */
+function convertPageToMarkdown(page: PageResponse): string {
+  let markdown = "";
+
+  // Extract title (from properties)
+  const title = extractPageTitle(page);
+  if (title) {
+    markdown += `# ${title}\n\n`;
+  }
+
+  // Display page properties as a Markdown table
+  markdown += convertPropertiesToMarkdown(page.properties);
+
+  // Include additional information if there are child blocks
+  markdown +=
+    "\n\n> This page contains child blocks. You can retrieve them using `retrieveBlockChildren`.\n";
+  markdown += `> Block ID: \`${page.id}\`\n`;
+
+  // Add link to view the page in Notion
+  if (page.url) {
+    markdown += `\n[View in Notion](${page.url})\n`;
+  }
+
+  return markdown;
+}
+
+/**
+ * Converts a Notion database to Markdown
+ */
+function convertDatabaseToMarkdown(database: DatabaseResponse): string {
+  let markdown = "";
+
+  // Extract database title
+  const title = extractRichText(database.title || []);
+  if (title) {
+    markdown += `# ${title} (Database)\n\n`;
+  }
+
+  // Add description if available
+  const description = extractRichText(database.description || []);
+  if (description) {
+    markdown += `${description}\n\n`;
+  }
+
+  // Display database property schema
+  if (database.properties) {
+    markdown += "## Properties\n\n";
+    markdown += "| Property Name | Type | Details |\n";
+    markdown += "|------------|------|------|\n";
+
+    Object.entries(database.properties).forEach(([key, prop]) => {
+      const propName = prop.name || key;
+      const propType = prop.type || "unknown";
+
+      // Additional information based on property type
+      let details = "";
+      switch (propType) {
+        case "select":
+        case "multi_select":
+          const options = prop[propType]?.options || [];
+          details = `Options: ${options.map((o: any) => o.name).join(", ")}`;
+          break;
+        case "relation":
+          details = `Related DB: ${prop.relation?.database_id || ""}`;
+          break;
+        case "formula":
+          details = `Formula: ${prop.formula?.expression || ""}`;
+          break;
+        case "rollup":
+          details = `Rollup: ${prop.rollup?.function || ""}`;
+          break;
+        case "created_by":
+        case "last_edited_by":
+          details = "User reference";
+          break;
+        case "created_time":
+        case "last_edited_time":
+          details = "Timestamp";
+          break;
+        case "date":
+          details = "Date or date range";
+          break;
+        case "email":
+          details = "Email address";
+          break;
+        case "files":
+          details = "File attachments";
+          break;
+        case "number":
+          details = `Format: ${prop.number?.format || "plain number"}`;
+          break;
+        case "people":
+          details = "People reference";
+          break;
+        case "phone_number":
+          details = "Phone number";
+          break;
+        case "rich_text":
+          details = "Formatted text";
+          break;
+        case "status":
+          const statusOptions = prop.status?.options || [];
+          details = `Options: ${statusOptions
+            .map((o: any) => o.name)
+            .join(", ")}`;
+          break;
+        case "title":
+          details = "Database title";
+          break;
+        case "url":
+          details = "URL link";
+          break;
+        case "checkbox":
+          details = "Boolean value";
+          break;
+      }
+
+      markdown += `| ${escapeTableCell(
+        propName
+      )} | ${propType} | ${escapeTableCell(details)} |\n`;
+    });
+
+    markdown += "\n";
+  }
+
+  // Add link to view the database in Notion
+  if (database.url) {
+    markdown += `\n[View in Notion](${database.url})\n`;
+  }
+
+  return markdown;
+}
+
+/**
+ * Converts Notion API block response to Markdown
+ */
+function convertBlockToMarkdown(block: BlockResponse): string {
+  if (!block) return "";
+
+  // Convert based on block type
+  return renderBlock(block);
+}
+
+/**
+ * Converts list response (search results or block children) to Markdown
+ */
+function convertListToMarkdown(list: ListResponse): string {
+  if (!list || !list.results || !Array.isArray(list.results)) {
+    return "```\nNo results\n```";
+  }
+
+  let markdown = "";
+
+  // Determine the type of results
+  const firstResult = list.results[0];
+  const resultType = firstResult?.object || "unknown";
+
+  // Add header based on type
+  switch (resultType) {
+    case "page":
+      markdown += "# Search Results (Pages)\n\n";
+      break;
+    case "database":
+      markdown += "# Search Results (Databases)\n\n";
+      break;
+    case "block":
+      markdown += "# Block Contents\n\n";
+      break;
+    default:
+      markdown += "# Results List\n\n";
+  }
+
+  // Process each result
+  for (const item of list.results) {
+    // Convert based on type
+    switch (item.object) {
+      case "page":
+        if (resultType === "page") {
+          // Display page title and link
+          const title = extractPageTitle(item as PageResponse) || "Untitled";
+          markdown += `## [${title}](${(item as PageResponse).url || "#"})\n\n`;
+          markdown += `ID: \`${item.id}\`\n\n`;
+          // Separator line
+          markdown += "---\n\n";
+        } else {
+          // Full conversion
+          markdown += convertPageToMarkdown(item as PageResponse);
+          markdown += "\n\n---\n\n";
+        }
+        break;
+
+      case "database":
+        if (resultType === "database") {
+          // Simple display
+          const dbTitle =
+            extractRichText((item as DatabaseResponse).title || []) ||
+            "Untitled Database";
+          markdown += `## [${dbTitle}](${
+            (item as DatabaseResponse).url || "#"
+          })\n\n`;
+          markdown += `ID: \`${item.id}\`\n\n`;
+          markdown += "---\n\n";
+        } else {
+          // Full conversion
+          markdown += convertDatabaseToMarkdown(item as DatabaseResponse);
+          markdown += "\n\n---\n\n";
+        }
+        break;
+
+      case "block":
+        markdown += renderBlock(item as BlockResponse);
+        markdown += "\n\n";
+        break;
+
+      default:
+        markdown += `\`\`\`json\n${JSON.stringify(item, null, 2)}\n\`\`\`\n\n`;
+    }
+  }
+
+  // Include pagination info if available
+  if (list.has_more) {
+    markdown +=
+      "\n> More results available. Use `start_cursor` parameter with the next request.\n";
+    if (list.next_cursor) {
+      markdown += `> Next cursor: \`${list.next_cursor}\`\n`;
+    }
+  }
+
+  return markdown;
+}
+
+/**
+ * Extracts page title
+ */
+function extractPageTitle(page: PageResponse): string {
+  if (!page || !page.properties) return "";
+
+  // Look for the title property
+  for (const [_, prop] of Object.entries(page.properties)) {
+    const property = prop as PageProperty;
+    if (property.type === "title" && Array.isArray(property.title)) {
+      return extractRichText(property.title);
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Converts page properties to Markdown
+ */
+function convertPropertiesToMarkdown(
+  properties: Record<string, PageProperty>
+): string {
+  if (!properties) return "";
+
+  let markdown = "## Properties\n\n";
+
+  // Display properties as a key-value table
+  markdown += "| Property | Value |\n";
+  markdown += "|------------|----|\n";
+
+  for (const [key, prop] of Object.entries(properties)) {
+    const property = prop as PageProperty;
+    const propName = key;
+    let propValue = "";
+
+    // Extract value based on property type
+    switch (property.type) {
+      case "title":
+        propValue = extractRichText(property.title || []);
+        break;
+      case "rich_text":
+        propValue = extractRichText(property.rich_text || []);
+        break;
+      case "number":
+        propValue = property.number?.toString() || "";
+        break;
+      case "select":
+        propValue = property.select?.name || "";
+        break;
+      case "multi_select":
+        propValue = (property.multi_select || [])
+          .map((item: any) => item.name)
+          .join(", ");
+        break;
+      case "date":
+        const start = property.date?.start || "";
+        const end = property.date?.end ? ` → ${property.date.end}` : "";
+        propValue = start + end;
+        break;
+      case "people":
+        propValue = (property.people || [])
+          .map((person: any) => person.name || person.id)
+          .join(", ");
+        break;
+      case "files":
+        propValue = (property.files || [])
+          .map(
+            (file: any) =>
+              `[${file.name || "Attachment"}](${
+                file.file?.url || file.external?.url || "#"
+              })`
+          )
+          .join(", ");
+        break;
+      case "checkbox":
+        propValue = property.checkbox ? "✓" : "✗";
+        break;
+      case "url":
+        propValue = property.url || "";
+        break;
+      case "email":
+        propValue = property.email || "";
+        break;
+      case "phone_number":
+        propValue = property.phone_number || "";
+        break;
+      case "formula":
+        propValue =
+          property.formula?.string ||
+          property.formula?.number?.toString() ||
+          property.formula?.boolean?.toString() ||
+          "";
+        break;
+      case "status":
+        propValue = property.status?.name || "";
+        break;
+      case "relation":
+        propValue = (property.relation || [])
+          .map((relation: any) => `\`${relation.id}\``)
+          .join(", ");
+        break;
+      case "rollup":
+        if (property.rollup?.type === "array") {
+          propValue = JSON.stringify(property.rollup.array || []);
+        } else {
+          propValue =
+            property.rollup?.number?.toString() ||
+            property.rollup?.date?.start ||
+            property.rollup?.string ||
+            "";
+        }
+        break;
+      case "created_by":
+        propValue = property.created_by?.name || property.created_by?.id || "";
+        break;
+      case "created_time":
+        propValue = property.created_time || "";
+        break;
+      case "last_edited_by":
+        propValue =
+          property.last_edited_by?.name || property.last_edited_by?.id || "";
+        break;
+      case "last_edited_time":
+        propValue = property.last_edited_time || "";
+        break;
+      default:
+        propValue = "(Unsupported property type)";
+    }
+
+    markdown += `| ${escapeTableCell(propName)} | ${escapeTableCell(
+      propValue
+    )} |\n`;
+  }
+
+  return markdown;
+}
+
+/**
+ * Extracts plain text from a Notion rich text array
+ */
+function extractRichText(richTextArray: RichTextItemResponse[]): string {
+  if (!richTextArray || !Array.isArray(richTextArray)) return "";
+
+  return richTextArray
+    .map((item) => {
+      let text = item.plain_text || "";
+
+      // Process annotations
+      if (item.annotations) {
+        const { bold, italic, strikethrough, code } = item.annotations;
+
+        if (code) text = `\`${text}\``;
+        if (bold) text = `**${text}**`;
+        if (italic) text = `*${text}*`;
+        if (strikethrough) text = `~~${text}~~`;
+      }
+
+      // Process links
+      if (item.href) {
+        text = `[${text}](${item.href})`;
+      }
+
+      return text;
+    })
+    .join("");
+}
+
+/**
+ * Converts a block to Markdown
+ */
+function renderBlock(block: BlockResponse): string {
+  if (!block) return "";
+
+  const blockType = block.type;
+  if (!blockType) return "";
+
+  // Get block content
+  const blockContent = block[blockType];
+  if (!blockContent && blockType !== "divider") return "";
+
+  switch (blockType) {
+    case "paragraph":
+      return renderParagraph(blockContent);
+
+    case "heading_1":
+      return `# ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "heading_2":
+      return `## ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "heading_3":
+      return `### ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "bulleted_list_item":
+      return `- ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "numbered_list_item":
+      return `1. ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "to_do":
+      const checked = blockContent.checked ? "x" : " ";
+      return `- [${checked}] ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "toggle":
+      return `<details>\n<summary>${extractRichText(
+        blockContent.rich_text || []
+      )}</summary>\n\n*Additional API request is needed to display child blocks*\n\n</details>`;
+
+    case "child_page":
+      return `📄 **Child Page**: ${blockContent.title || "Untitled"}`;
+
+    case "image":
+      const imageType = blockContent.type || "";
+      const imageUrl =
+        imageType === "external"
+          ? blockContent.external?.url
+          : blockContent.file?.url;
+      const imageCaption =
+        extractRichText(blockContent.caption || []) || "image";
+      return `![${imageCaption}](${imageUrl || "#"})`;
+
+    case "divider":
+      return "---";
+
+    case "quote":
+      return `> ${extractRichText(blockContent.rich_text || [])}`;
+
+    case "code":
+      const codeLanguage = blockContent.language || "plaintext";
+      const codeContent = extractRichText(blockContent.rich_text || []);
+      return `\`\`\`${codeLanguage}\n${codeContent}\n\`\`\``;
+
+    case "callout":
+      const calloutIcon = blockContent.icon?.emoji || "";
+      const calloutText = extractRichText(blockContent.rich_text || []);
+      return `> ${calloutIcon} ${calloutText}`;
+
+    case "bookmark":
+      const bookmarkUrl = blockContent.url || "";
+      const bookmarkCaption =
+        extractRichText(blockContent.caption || []) || bookmarkUrl;
+      return `[${bookmarkCaption}](${bookmarkUrl})`;
+
+    case "table":
+      return `*Table data (${
+        blockContent.table_width || 0
+      } columns) - Additional API request is needed to display details*`;
+
+    case "child_database":
+      return `📊 **Embedded Database**: \`${block.id}\``;
+
+    case "breadcrumb":
+      return `[breadcrumb navigation]`;
+
+    case "embed":
+      const embedUrl = blockContent.url || "";
+      return `<iframe src="${embedUrl}" frameborder="0"></iframe>`;
+
+    case "equation":
+      const formulaText = blockContent.expression || "";
+      return `$$${formulaText}$$`;
+
+    case "file":
+      const fileType = blockContent.type || "";
+      const fileUrl =
+        fileType === "external"
+          ? blockContent.external?.url
+          : blockContent.file?.url;
+      const fileName = blockContent.name || "File";
+      return `📎 [${fileName}](${fileUrl || "#"})`;
+
+    case "link_preview":
+      const previewUrl = blockContent.url || "";
+      return `🔗 [Preview](${previewUrl})`;
+
+    case "link_to_page":
+      let linkText = "Link to page";
+      let linkId = "";
+      if (blockContent.page_id) {
+        linkId = blockContent.page_id;
+        linkText = "Link to page";
+      } else if (blockContent.database_id) {
+        linkId = blockContent.database_id;
+        linkText = "Link to database";
+      }
+      return `🔗 **${linkText}**: \`${linkId}\``;
+
+    case "pdf":
+      const pdfType = blockContent.type || "";
+      const pdfUrl =
+        pdfType === "external"
+          ? blockContent.external?.url
+          : blockContent.file?.url;
+      const pdfCaption = extractRichText(blockContent.caption || []) || "PDF";
+      return `📄 [${pdfCaption}](${pdfUrl || "#"})`;
+
+    case "synced_block":
+      const syncedFrom = blockContent.synced_from
+        ? `\`${blockContent.synced_from.block_id}\``
+        : "original";
+      return `*Synced Block (${syncedFrom}) - Additional API request is needed to display content*`;
+
+    case "table_of_contents":
+      return `[TOC]`;
+
+    case "table_row":
+      if (!blockContent.cells || !Array.isArray(blockContent.cells)) {
+        return "*Empty table row*";
+      }
+      return `| ${blockContent.cells
+        .map((cell: any) => escapeTableCell(extractRichText(cell)))
+        .join(" | ")} |`;
+
+    case "template":
+      return `*Template Block: ${extractRichText(
+        blockContent.rich_text || []
+      )}*`;
+
+    case "video":
+      const videoType = blockContent.type || "";
+      const videoUrl =
+        videoType === "external"
+          ? blockContent.external?.url
+          : blockContent.file?.url;
+      const videoCaption =
+        extractRichText(blockContent.caption || []) || "Video";
+      return `🎬 [${videoCaption}](${videoUrl || "#"})`;
+
+    case "unsupported":
+      return `*Unsupported block*`;
+
+    default:
+      return `*Unsupported block type: ${blockType}*`;
+  }
+}
+
+/**
+ * Renders a paragraph block
+ */
+function renderParagraph(paragraph: any): string {
+  if (!paragraph || !paragraph.rich_text) return "";
+
+  return extractRichText(paragraph.rich_text);
+}
+
+/**
+ * Escapes characters that need special handling in Markdown table cells
+ */
+function escapeTableCell(text: string): string {
+  if (!text) return "";
+  return text.replace(/\|/g, "\\|").replace(/\n/g, " ").replace(/\+/g, "\\+");
+}
+
+
+
+================================================
+FILE: src/server/index.ts
+================================================
+/**
+ * MCP server setup and request handling
+ */
+
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequest,
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { NotionClientWrapper } from "../client/index.js";
+import { filterTools } from "../utils/index.js";
+import * as schemas from "../types/schemas.js";
+import * as args from "../types/args.js";
+
+/**
+ * Start the MCP server
+ */
+export async function startServer(
+  notionToken: string,
+  enabledToolsSet: Set<string>,
+  enableMarkdownConversion: boolean
+) {
+  const server = new Server(
+    {
+      name: "Notion MCP Server",
+      version: "1.0.0",
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+
+  const notionClient = new NotionClientWrapper(notionToken);
+
+  server.setRequestHandler(
+    CallToolRequestSchema,
+    async (request: CallToolRequest) => {
+      console.error("Received CallToolRequest:", request);
+      try {
+        if (!request.params.arguments) {
+          throw new Error("No arguments provided");
+        }
+
+        let response;
+
+        switch (request.params.name) {
+          case "notion_append_block_children": {
+            const args = request.params
+              .arguments as unknown as args.AppendBlockChildrenArgs;
+            if (!args.block_id || !args.children) {
+              throw new Error(
+                "Missing required arguments: block_id and children"
+              );
+            }
+            response = await notionClient.appendBlockChildren(
+              args.block_id,
+              args.children
+            );
+            break;
+          }
+
+          case "notion_retrieve_block": {
+            const args = request.params
+              .arguments as unknown as args.RetrieveBlockArgs;
+            if (!args.block_id) {
+              throw new Error("Missing required argument: block_id");
+            }
+            response = await notionClient.retrieveBlock(args.block_id);
+            break;
+          }
+
+          case "notion_retrieve_block_children": {
+            const args = request.params
+              .arguments as unknown as args.RetrieveBlockChildrenArgs;
+            if (!args.block_id) {
+              throw new Error("Missing required argument: block_id");
+            }
+            response = await notionClient.retrieveBlockChildren(
+              args.block_id,
+              args.start_cursor,
+              args.page_size
+            );
+            break;
+          }
+
+          case "notion_delete_block": {
+            const args = request.params
+              .arguments as unknown as args.DeleteBlockArgs;
+            if (!args.block_id) {
+              throw new Error("Missing required argument: block_id");
+            }
+            response = await notionClient.deleteBlock(args.block_id);
+            break;
+          }
+
+          case "notion_update_block": {
+            const args = request.params
+              .arguments as unknown as args.UpdateBlockArgs;
+            if (!args.block_id || !args.block) {
+              throw new Error("Missing required arguments: block_id and block");
+            }
+            response = await notionClient.updateBlock(
+              args.block_id,
+              args.block
+            );
+            break;
+          }
+
+          case "notion_retrieve_page": {
+            const args = request.params
+              .arguments as unknown as args.RetrievePageArgs;
+            if (!args.page_id) {
+              throw new Error("Missing required argument: page_id");
+            }
+            response = await notionClient.retrievePage(args.page_id);
+            break;
+          }
+
+          case "notion_update_page_properties": {
+            const args = request.params
+              .arguments as unknown as args.UpdatePagePropertiesArgs;
+            if (!args.page_id || !args.properties) {
+              throw new Error(
+                "Missing required arguments: page_id and properties"
+              );
+            }
+            response = await notionClient.updatePageProperties(
+              args.page_id,
+              args.properties
+            );
+            break;
+          }
+
+          case "notion_list_all_users": {
+            const args = request.params
+              .arguments as unknown as args.ListAllUsersArgs;
+            response = await notionClient.listAllUsers(
+              args.start_cursor,
+              args.page_size
+            );
+            break;
+          }
+
+          case "notion_retrieve_user": {
+            const args = request.params
+              .arguments as unknown as args.RetrieveUserArgs;
+            if (!args.user_id) {
+              throw new Error("Missing required argument: user_id");
+            }
+            response = await notionClient.retrieveUser(args.user_id);
+            break;
+          }
+
+          case "notion_retrieve_bot_user": {
+            response = await notionClient.retrieveBotUser();
+            break;
+          }
+
+          case "notion_query_database": {
+            const args = request.params
+              .arguments as unknown as args.QueryDatabaseArgs;
+            if (!args.database_id) {
+              throw new Error("Missing required argument: database_id");
+            }
+            response = await notionClient.queryDatabase(
+              args.database_id,
+              args.filter,
+              args.sorts,
+              args.start_cursor,
+              args.page_size
+            );
+            break;
+          }
+
+          case "notion_create_database": {
+            const args = request.params
+              .arguments as unknown as args.CreateDatabaseArgs;
+            response = await notionClient.createDatabase(
+              args.parent,
+              args.properties,
+              args.title
+            );
+            break;
+          }
+
+          case "notion_retrieve_database": {
+            const args = request.params
+              .arguments as unknown as args.RetrieveDatabaseArgs;
+            response = await notionClient.retrieveDatabase(args.database_id);
+            break;
+          }
+
+          case "notion_update_database": {
+            const args = request.params
+              .arguments as unknown as args.UpdateDatabaseArgs;
+            response = await notionClient.updateDatabase(
+              args.database_id,
+              args.title,
+              args.description,
+              args.properties
+            );
+            break;
+          }
+
+          case "notion_create_database_item": {
+            const args = request.params
+              .arguments as unknown as args.CreateDatabaseItemArgs;
+            response = await notionClient.createDatabaseItem(
+              args.database_id,
+              args.properties
+            );
+            break;
+          }
+
+          case "notion_create_comment": {
+            const args = request.params
+              .arguments as unknown as args.CreateCommentArgs;
+
+            if (!args.parent && !args.discussion_id) {
+              throw new Error(
+                "Either parent.page_id or discussion_id must be provided"
+              );
+            }
+
+            response = await notionClient.createComment(
+              args.parent,
+              args.discussion_id,
+              args.rich_text
+            );
+            break;
+          }
+
+          case "notion_retrieve_comments": {
+            const args = request.params
+              .arguments as unknown as args.RetrieveCommentsArgs;
+            if (!args.block_id) {
+              throw new Error("Missing required argument: block_id");
+            }
+            response = await notionClient.retrieveComments(
+              args.block_id,
+              args.start_cursor,
+              args.page_size
+            );
+            break;
+          }
+
+          case "notion_search": {
+            const args = request.params.arguments as unknown as args.SearchArgs;
+            response = await notionClient.search(
+              args.query,
+              args.filter,
+              args.sort,
+              args.start_cursor,
+              args.page_size
+            );
+            break;
+          }
+
+          default:
+            throw new Error(`Unknown tool: ${request.params.name}`);
+        }
+
+        // Check format parameter and return appropriate response
+        const requestedFormat =
+          (request.params.arguments as any)?.format || "markdown";
+
+        // Only convert to markdown if both conditions are met:
+        // 1. The requested format is markdown
+        // 2. The experimental markdown conversion is enabled via environment variable
+        if (enableMarkdownConversion && requestedFormat === "markdown") {
+          const markdown = await notionClient.toMarkdown(response);
+          return {
+            content: [{ type: "text", text: markdown }],
+          };
+        } else {
+          return {
+            content: [
+              { type: "text", text: JSON.stringify(response, null, 2) },
+            ],
+          };
+        }
+      } catch (error) {
+        console.error("Error executing tool:", error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const allTools = [
+      schemas.appendBlockChildrenTool,
+      schemas.retrieveBlockTool,
+      schemas.retrieveBlockChildrenTool,
+      schemas.deleteBlockTool,
+      schemas.updateBlockTool,
+      schemas.retrievePageTool,
+      schemas.updatePagePropertiesTool,
+      schemas.listAllUsersTool,
+      schemas.retrieveUserTool,
+      schemas.retrieveBotUserTool,
+      schemas.createDatabaseTool,
+      schemas.queryDatabaseTool,
+      schemas.retrieveDatabaseTool,
+      schemas.updateDatabaseTool,
+      schemas.createDatabaseItemTool,
+      schemas.createCommentTool,
+      schemas.retrieveCommentsTool,
+      schemas.searchTool,
+    ];
+    return {
+      tools: filterTools(allTools, enabledToolsSet),
+    };
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+
+
+================================================
+FILE: src/types/args.ts
+================================================
+/**
+ * Type definitions for tool arguments
+ */
+
+import { RichTextItemResponse, BlockResponse } from "./responses.js";
+
+// Blocks
+export interface AppendBlockChildrenArgs {
+  block_id: string;
+  children: Partial<BlockResponse>[];
+  after?: string;
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveBlockArgs {
+  block_id: string;
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveBlockChildrenArgs {
+  block_id: string;
+  start_cursor?: string;
+  page_size?: number;
+  format?: "json" | "markdown";
+}
+
+export interface DeleteBlockArgs {
+  block_id: string;
+  format?: "json" | "markdown";
+}
+
+export interface UpdateBlockArgs {
+  block_id: string;
+  block: Partial<BlockResponse>;
+  format?: "json" | "markdown";
+}
+
+// Pages
+export interface RetrievePageArgs {
+  page_id: string;
+  format?: "json" | "markdown";
+}
+
+export interface UpdatePagePropertiesArgs {
+  page_id: string;
+  properties: Record<string, any>;
+  format?: "json" | "markdown";
+}
+
+// Users
+export interface ListAllUsersArgs {
+  start_cursor?: string;
+  page_size?: number;
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveUserArgs {
+  user_id: string;
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveBotUserArgs {
+  random_string: string;
+  format?: "json" | "markdown";
+}
+
+// Databases
+export interface CreateDatabaseArgs {
+  parent: {
+    type: string;
+    page_id?: string;
+    database_id?: string;
+    workspace?: boolean;
+  };
+  title?: RichTextItemResponse[];
+  properties: Record<string, any>;
+  format?: "json" | "markdown";
+}
+
+export interface QueryDatabaseArgs {
+  database_id: string;
+  filter?: Record<string, any>;
+  sorts?: Array<{
+    property?: string;
+    timestamp?: string;
+    direction: "ascending" | "descending";
+  }>;
+  start_cursor?: string;
+  page_size?: number;
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveDatabaseArgs {
+  database_id: string;
+  format?: "json" | "markdown";
+}
+
+export interface UpdateDatabaseArgs {
+  database_id: string;
+  title?: RichTextItemResponse[];
+  description?: RichTextItemResponse[];
+  properties?: Record<string, any>;
+  format?: "json" | "markdown";
+}
+
+export interface CreateDatabaseItemArgs {
+  database_id: string;
+  properties: Record<string, any>;
+  format?: "json" | "markdown";
+}
+
+// Comments
+export interface CreateCommentArgs {
+  parent?: { page_id: string };
+  discussion_id?: string;
+  rich_text: RichTextItemResponse[];
+  format?: "json" | "markdown";
+}
+
+export interface RetrieveCommentsArgs {
+  block_id: string;
+  start_cursor?: string;
+  page_size?: number;
+  format?: "json" | "markdown";
+}
+
+// Search
+export interface SearchArgs {
+  query?: string;
+  filter?: { property: string; value: string };
+  sort?: {
+    direction: "ascending" | "descending";
+    timestamp: "last_edited_time";
+  };
+  start_cursor?: string;
+  page_size?: number;
+  format?: "json" | "markdown";
+}
+
+
+
+================================================
+FILE: src/types/common.ts
+================================================
+/**
+ * Common schema definitions for Notion tools
+ */
+
+// Common ID description
+export const commonIdDescription =
+  "It should be a 32-character string (excluding hyphens) formatted as 8-4-4-4-12 with hyphens (-).";
+
+// Format parameter schema
+export const formatParameter = {
+  type: "string",
+  enum: ["json", "markdown"],
+  description:
+    "Specify the response format. 'json' returns the original data structure, 'markdown' returns a more readable format. Use 'markdown' when the user only needs to read the page and isn't planning to write or modify it. Use 'json' when the user needs to read the page with the intention of writing to or modifying it.",
+  default: "markdown",
+};
+
+// Rich text object schema
+export const richTextObjectSchema = {
+  type: "object",
+  description: "A rich text object.",
+  properties: {
+    type: {
+      type: "string",
+      description:
+        "The type of this rich text object. Possible values: text, mention, equation.",
+      enum: ["text", "mention", "equation"],
+    },
+    text: {
+      type: "object",
+      description:
+        "Object containing text content and optional link info. Required if type is 'text'.",
+      properties: {
+        content: {
+          type: "string",
+          description: "The actual text content.",
+        },
+        link: {
+          type: "object",
+          description: "Optional link object with a 'url' field. Do NOT provide a NULL value, just ignore this field no link.",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL the text links to.",
+            },
+          },
+        },
+      },
+    },
+    mention: {
+      type: "object",
+      description:
+        "Mention object if type is 'mention'. Represents an inline mention of a database, date, link preview, page, template mention, or user.",
+      properties: {
+        type: {
+          type: "string",
+          description: "The type of the mention.",
+          enum: [
+            "database",
+            "date",
+            "link_preview",
+            "page",
+            "template_mention",
+            "user",
+          ],
+        },
+        database: {
+          type: "object",
+          description:
+            "Database mention object. Contains a database reference with an 'id' field.",
+          properties: {
+            id: {
+              type: "string",
+              description:
+                "The ID of the mentioned database." + commonIdDescription,
+            },
+          },
+          required: ["id"],
+        },
+        date: {
+          type: "object",
+          description:
+            "Date mention object, containing a date property value object.",
+          properties: {
+            start: {
+              type: "string",
+              description: "An ISO 8601 formatted start date or date-time.",
+            },
+            end: {
+              type: ["string", "null"],
+              description:
+                "An ISO 8601 formatted end date or date-time, or null if not a range.",
+            },
+            time_zone: {
+              type: ["string", "null"],
+              description:
+                "Time zone information for start and end. If null, times are in UTC.",
+            },
+          },
+          required: ["start"],
+        },
+        link_preview: {
+          type: "object",
+          description:
+            "Link Preview mention object, containing a URL for the link preview.",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL for the link preview.",
+            },
+          },
+          required: ["url"],
+        },
+        page: {
+          type: "object",
+          description:
+            "Page mention object, containing a page reference with an 'id' field.",
+          properties: {
+            id: {
+              type: "string",
+              description:
+                "The ID of the mentioned page." + commonIdDescription,
+            },
+          },
+          required: ["id"],
+        },
+        template_mention: {
+          type: "object",
+          description:
+            "Template mention object, can be a template_mention_date or template_mention_user.",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["template_mention_date", "template_mention_user"],
+              description: "The template mention type.",
+            },
+            template_mention_date: {
+              type: "string",
+              enum: ["today", "now"],
+              description: "For template_mention_date type, the date keyword.",
+            },
+            template_mention_user: {
+              type: "string",
+              enum: ["me"],
+              description: "For template_mention_user type, the user keyword.",
+            },
+          },
+        },
+        user: {
+          type: "object",
+          description: "User mention object, contains a user reference.",
+          properties: {
+            object: {
+              type: "string",
+              description: "Should be 'user'.",
+              enum: ["user"],
+            },
+            id: {
+              type: "string",
+              description: "The ID of the user." + commonIdDescription,
+            },
+          },
+          required: ["object", "id"],
+        },
+      },
+      required: ["type"],
+      oneOf: [
+        { required: ["database"] },
+        { required: ["date"] },
+        { required: ["link_preview"] },
+        { required: ["page"] },
+        { required: ["template_mention"] },
+        { required: ["user"] },
+      ],
+    },
+    equation: {
+      type: "object",
+      description:
+        "Equation object if type is 'equation'. Represents an inline LaTeX equation.",
+      properties: {
+        expression: {
+          type: "string",
+          description: "LaTeX string representing the inline equation.",
+        },
+      },
+      required: ["expression"],
+    },
+    annotations: {
+      type: "object",
+      description: "Styling information for the text. By default, give nothing for default text.",
+      properties: {
+        bold: { type: "boolean" },
+        italic: { type: "boolean" },
+        strikethrough: { type: "boolean" },
+        underline: { type: "boolean" },
+        code: { type: "boolean" },
+        color: {
+          type: "string",
+          description: "Color for the text.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+      },
+    },
+    href: {
+      type: "string",
+      description: "The URL of any link or mention in this text, if any. Do NOT provide a NULL value, just ignore this field if there is no link or mention.",
+    },
+    plain_text: {
+      type: "string",
+      description: "The plain text without annotations.",
+    },
+  },
+  required: ["type"],
+};
+
+// Block object schema
+export const blockObjectSchema = {
+  type: "object",
+  description: "A Notion block object.",
+  properties: {
+    object: {
+      type: "string",
+      description: "Should be 'block'.",
+      enum: ["block"],
+    },
+    type: {
+      type: "string",
+      description:
+        "Type of the block. Possible values include 'paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item', 'to_do', 'toggle', 'child_page', 'child_database', 'embed', 'callout', 'quote', 'equation', 'divider', 'table_of_contents', 'column', 'column_list', 'link_preview', 'synced_block', 'template', 'link_to_page', 'audio', 'bookmark', 'breadcrumb', 'code', 'file', 'image', 'pdf', 'video'. Not all types are supported for creation via API.",
+    },
+    paragraph: {
+      type: "object",
+      description: "Paragraph block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description:
+            "Array of rich text objects representing the comment content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        children: {
+          type: "array",
+          description: "Nested child blocks.",
+          items: {
+            type: "object",
+            description: "A nested block object.",
+          },
+        },
+      },
+    },
+    heading_1: {
+      type: "object",
+      description: "Heading 1 block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the heading content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        is_toggleable: {
+          type: "boolean",
+          description: "Whether the heading can be toggled.",
+        },
+      },
+    },
+    heading_2: {
+      type: "object",
+      description: "Heading 2 block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the heading content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        is_toggleable: {
+          type: "boolean",
+          description: "Whether the heading can be toggled.",
+        },
+      },
+    },
+    heading_3: {
+      type: "object",
+      description: "Heading 3 block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the heading content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        is_toggleable: {
+          type: "boolean",
+          description: "Whether the heading can be toggled.",
+        },
+      },
+    },
+    bulleted_list_item: {
+      type: "object",
+      description: "Bulleted list item block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the list item content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        children: {
+          type: "array",
+          description: "Nested child blocks.",
+          items: {
+            type: "object",
+            description: "A nested block object.",
+          },
+        },
+      },
+    },
+    numbered_list_item: {
+      type: "object",
+      description: "Numbered list item block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the list item content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        children: {
+          type: "array",
+          description: "Nested child blocks.",
+          items: {
+            type: "object",
+            description: "A nested block object.",
+          },
+        },
+      },
+    },
+    toggle: {
+      type: "object",
+      description: "Toggle block object.",
+      properties: {
+        rich_text: {
+          type: "array",
+          description: "Array of rich text objects representing the toggle content.",
+          items: richTextObjectSchema,
+        },
+        color: {
+          type: "string",
+          description: "The color of the block.",
+          enum: [
+            "default",
+            "blue",
+            "blue_background",
+            "brown",
+            "brown_background",
+            "gray",
+            "gray_background",
+            "green",
+            "green_background",
+            "orange",
+            "orange_background",
+            "pink",
+            "pink_background",
+            "purple",
+            "purple_background",
+            "red",
+            "red_background",
+            "yellow",
+            "yellow_background",
+          ],
+        },
+        children: {
+          type: "array",
+          description: "Nested child blocks that are revealed when the toggle is opened.",
+          items: {
+            type: "object",
+            description: "A nested block object.",
+          },
+        },
+      },
+    },
+    divider: {
+      type: "object",
+      description: "Divider block object.",
+      properties: {},
+    },
+  },
+  required: ["object", "type"],
+};
+
+
+
+================================================
+FILE: src/types/index.ts
+================================================
+/**
+ * Type definitions for Notion API
+ *
+ * This file re-exports all types from more specialized files
+ */
+
+// Export all types
+export * from "./common.js";
+export * from "./args.js";
+export * from "./schemas.js";
+export * from "./responses.js";
+
+
+
+================================================
+FILE: src/types/responses.ts
+================================================
+/**
+ * Type definitions for Notion API responses
+ */
+
+export type NotionObjectType =
+  | "page"
+  | "database"
+  | "block"
+  | "list"
+  | "user"
+  | "comment";
+
+export type RichTextItemResponse = {
+  type: "text" | "mention" | "equation";
+  text?: {
+    content: string;
+    link?: {
+      url: string;
+    } | null;
+  };
+  mention?: {
+    type:
+      | "database"
+      | "date"
+      | "link_preview"
+      | "page"
+      | "template_mention"
+      | "user";
+    [key: string]: any;
+  };
+  annotations?: {
+    bold: boolean;
+    italic: boolean;
+    strikethrough: boolean;
+    underline: boolean;
+    code: boolean;
+    color: string;
+  };
+  plain_text?: string;
+  href?: string | null;
+  equation?: {
+    expression: string;
+  };
+};
+
+export type BlockType =
+  | "paragraph"
+  | "heading_1"
+  | "heading_2"
+  | "heading_3"
+  | "bulleted_list_item"
+  | "numbered_list_item"
+  | "to_do"
+  | "toggle"
+  | "child_page"
+  | "child_database"
+  | "embed"
+  | "callout"
+  | "quote"
+  | "equation"
+  | "divider"
+  | "table_of_contents"
+  | "column"
+  | "column_list"
+  | "link_preview"
+  | "synced_block"
+  | "template"
+  | "link_to_page"
+  | "audio"
+  | "bookmark"
+  | "breadcrumb"
+  | "code"
+  | "file"
+  | "image"
+  | "pdf"
+  | "video"
+  | "unsupported"
+  | string;
+
+export type BlockResponse = {
+  object: "block";
+  id: string;
+  type: BlockType;
+  created_time: string;
+  last_edited_time: string;
+  has_children?: boolean;
+  archived?: boolean;
+  [key: string]: any;
+};
+
+export type PageResponse = {
+  object: "page";
+  id: string;
+  created_time: string;
+  last_edited_time: string;
+  created_by?: {
+    object: "user";
+    id: string;
+  };
+  last_edited_by?: {
+    object: "user";
+    id: string;
+  };
+  cover?: {
+    type: string;
+    [key: string]: any;
+  } | null;
+  icon?: {
+    type: string;
+    [key: string]: any;
+  } | null;
+  archived?: boolean;
+  in_trash?: boolean;
+  url?: string;
+  public_url?: string;
+  parent: {
+    type: "database_id" | "page_id" | "workspace";
+    database_id?: string;
+    page_id?: string;
+  };
+  properties: Record<string, PageProperty>;
+};
+
+export type PageProperty = {
+  id: string;
+  type: string;
+  [key: string]: any;
+};
+
+export type DatabaseResponse = {
+  object: "database";
+  id: string;
+  created_time: string;
+  last_edited_time: string;
+  title: RichTextItemResponse[];
+  description?: RichTextItemResponse[];
+  url?: string;
+  icon?: {
+    type: string;
+    emoji?: string;
+    [key: string]: any;
+  } | null;
+  cover?: {
+    type: string;
+    [key: string]: any;
+  } | null;
+  properties: Record<string, DatabasePropertyConfig>;
+  parent?: {
+    type: string;
+    page_id?: string;
+    workspace?: boolean;
+  };
+  archived?: boolean;
+  is_inline?: boolean;
+};
+
+export type DatabasePropertyConfig = {
+  id: string;
+  name: string;
+  type: string;
+  [key: string]: any;
+};
+
+export type ListResponse = {
+  object: "list";
+  results: Array<
+    | PageResponse
+    | DatabaseResponse
+    | BlockResponse
+    | UserResponse
+    | CommentResponse
+  >;
+  next_cursor: string | null;
+  has_more: boolean;
+  type?: string;
+  page_or_database?: Record<string, any>;
+};
+
+export type UserResponse = {
+  object: "user";
+  id: string;
+  name?: string;
+  avatar_url?: string | null;
+  type?: "person" | "bot";
+  person?: {
+    email: string;
+  };
+  bot?: Record<string, any>;
+};
+
+export type CommentResponse = {
+  object: "comment";
+  id: string;
+  parent: {
+    type: "page_id" | "block_id";
+    page_id?: string;
+    block_id?: string;
+  };
+  discussion_id: string;
+  created_time: string;
+  last_edited_time: string;
+  created_by: {
+    object: "user";
+    id: string;
+  };
+  rich_text: RichTextItemResponse[];
+};
+
+export type NotionResponse =
+  | PageResponse
+  | DatabaseResponse
+  | BlockResponse
+  | ListResponse
+  | UserResponse
+  | CommentResponse;
+
+
+
+================================================
+FILE: src/types/schemas.ts
+================================================
+/**
+ * Schema definitions for Notion API tools
+ */
+
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  commonIdDescription,
+  formatParameter,
+  richTextObjectSchema,
+  blockObjectSchema,
+} from "./common.js";
+
+// Blocks tools
+export const appendBlockChildrenTool: Tool = {
+  name: "notion_append_block_children",
+  description:
+    "Append new children blocks to a specified parent block in Notion. Requires insert content capabilities. You can optionally specify the 'after' parameter to append after a certain block.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description: "The ID of the parent block." + commonIdDescription,
+      },
+      children: {
+        type: "array",
+        description:
+          "Array of block objects to append. Each block must follow the Notion block schema.",
+        items: blockObjectSchema,
+      },
+      after: {
+        type: "string",
+        description:
+          "The ID of the existing block that the new block should be appended after." +
+          commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["block_id", "children"],
+  },
+};
+
+export const retrieveBlockTool: Tool = {
+  name: "notion_retrieve_block",
+  description: "Retrieve a block from Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description: "The ID of the block to retrieve." + commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["block_id"],
+  },
+};
+
+export const retrieveBlockChildrenTool: Tool = {
+  name: "notion_retrieve_block_children",
+  description: "Retrieve the children of a block",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description: "The ID of the block." + commonIdDescription,
+      },
+      start_cursor: {
+        type: "string",
+        description: "Pagination cursor for next page of results",
+      },
+      page_size: {
+        type: "number",
+        description: "Number of results per page (max 100)",
+      },
+      format: formatParameter,
+    },
+    required: ["block_id"],
+  },
+};
+
+export const deleteBlockTool: Tool = {
+  name: "notion_delete_block",
+  description: "Delete a block in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description: "The ID of the block to delete." + commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["block_id"],
+  },
+};
+
+export const updateBlockTool: Tool = {
+  name: "notion_update_block",
+  description:
+    "Update the content of a block in Notion based on its type. The update replaces the entire value for a given field.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description: "The ID of the block to update." + commonIdDescription,
+      },
+      block: {
+        type: "object",
+        description:
+          "The updated content for the block. Must match the block's type schema.",
+      },
+      format: formatParameter,
+    },
+    required: ["block_id", "block"],
+  },
+};
+
+// Pages tools
+export const retrievePageTool: Tool = {
+  name: "notion_retrieve_page",
+  description: "Retrieve a page from Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      page_id: {
+        type: "string",
+        description: "The ID of the page to retrieve." + commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["page_id"],
+  },
+};
+
+export const updatePagePropertiesTool: Tool = {
+  name: "notion_update_page_properties",
+  description: "Update properties of a page or an item in a Notion database",
+  inputSchema: {
+    type: "object",
+    properties: {
+      page_id: {
+        type: "string",
+        description:
+          "The ID of the page or database item to update." +
+          commonIdDescription,
+      },
+      properties: {
+        type: "object",
+        description:
+          "Properties to update. These correspond to the columns or fields in the database.",
+      },
+      format: formatParameter,
+    },
+    required: ["page_id", "properties"],
+  },
+};
+
+// Users tools
+export const listAllUsersTool: Tool = {
+  name: "notion_list_all_users",
+  description:
+    "List all users in the Notion workspace. **Note:** This function requires upgrading to the Notion Enterprise plan and using an Organization API key to avoid permission errors.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      start_cursor: {
+        type: "string",
+        description: "Pagination start cursor for listing users",
+      },
+      page_size: {
+        type: "number",
+        description: "Number of users to retrieve (max 100)",
+      },
+      format: formatParameter,
+    },
+  },
+};
+
+export const retrieveUserTool: Tool = {
+  name: "notion_retrieve_user",
+  description:
+    "Retrieve a specific user by user_id in Notion. **Note:** This function requires upgrading to the Notion Enterprise plan and using an Organization API key to avoid permission errors.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      user_id: {
+        type: "string",
+        description: "The ID of the user to retrieve." + commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["user_id"],
+  },
+};
+
+export const retrieveBotUserTool: Tool = {
+  name: "notion_retrieve_bot_user",
+  description:
+    "Retrieve the bot user associated with the current token in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      random_string: {
+        type: "string",
+        description: "Dummy parameter for no-parameter tools",
+      },
+      format: formatParameter,
+    },
+    required: ["random_string"],
+  },
+};
+
+// Databases tools
+export const createDatabaseTool: Tool = {
+  name: "notion_create_database",
+  description: "Create a database in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      parent: {
+        type: "object",
+        description: "Parent object of the database",
+      },
+      title: {
+        type: "array",
+        description:
+          "Title of database as it appears in Notion. An array of rich text objects.",
+        items: richTextObjectSchema,
+      },
+      properties: {
+        type: "object",
+        description:
+          "Property schema of database. The keys are the names of properties as they appear in Notion and the values are property schema objects.",
+      },
+      format: formatParameter,
+    },
+    required: ["parent", "properties"],
+  },
+};
+
+export const queryDatabaseTool: Tool = {
+  name: "notion_query_database",
+  description: "Query a database in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      database_id: {
+        type: "string",
+        description: "The ID of the database to query." + commonIdDescription,
+      },
+      filter: {
+        type: "object",
+        description: "Filter conditions",
+      },
+      sorts: {
+        type: "array",
+        description: "Sort conditions",
+        items: {
+          type: "object",
+          properties: {
+            property: { type: "string" },
+            timestamp: { type: "string" },
+            direction: {
+              type: "string",
+              enum: ["ascending", "descending"],
+            },
+          },
+          required: ["direction"],
+        },
+      },
+      start_cursor: {
+        type: "string",
+        description: "Pagination cursor for next page of results",
+      },
+      page_size: {
+        type: "number",
+        description: "Number of results per page (max 100)",
+      },
+      format: formatParameter,
+    },
+    required: ["database_id"],
+  },
+};
+
+export const retrieveDatabaseTool: Tool = {
+  name: "notion_retrieve_database",
+  description: "Retrieve a database in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      database_id: {
+        type: "string",
+        description:
+          "The ID of the database to retrieve." + commonIdDescription,
+      },
+      format: formatParameter,
+    },
+    required: ["database_id"],
+  },
+};
+
+export const updateDatabaseTool: Tool = {
+  name: "notion_update_database",
+  description: "Update a database in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      database_id: {
+        type: "string",
+        description: "The ID of the database to update." + commonIdDescription,
+      },
+      title: {
+        type: "array",
+        description:
+          "An array of rich text objects that represents the title of the database that is displayed in the Notion UI.",
+        items: richTextObjectSchema,
+      },
+      description: {
+        type: "array",
+        description:
+          "An array of rich text objects that represents the description of the database that is displayed in the Notion UI.",
+        items: richTextObjectSchema,
+      },
+      properties: {
+        type: "object",
+        description:
+          "The properties of a database to be changed in the request, in the form of a JSON object.",
+      },
+      format: formatParameter,
+    },
+    required: ["database_id"],
+  },
+};
+
+export const createDatabaseItemTool: Tool = {
+  name: "notion_create_database_item",
+  description: "Create a new item (page) in a Notion database",
+  inputSchema: {
+    type: "object",
+    properties: {
+      database_id: {
+        type: "string",
+        description:
+          "The ID of the database to add the item to." + commonIdDescription,
+      },
+      properties: {
+        type: "object",
+        description:
+          "Properties of the new database item. These should match the database schema.",
+      },
+      format: formatParameter,
+    },
+    required: ["database_id", "properties"],
+  },
+};
+
+// Comments tools
+export const createCommentTool: Tool = {
+  name: "notion_create_comment",
+  description:
+    "Create a comment in Notion. This requires the integration to have 'insert comment' capabilities. You can either specify a page parent or a discussion_id, but not both.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      parent: {
+        type: "object",
+        description:
+          "Parent object that specifies the page to comment on. Must include a page_id if used.",
+        properties: {
+          page_id: {
+            type: "string",
+            description:
+              "The ID of the page to comment on." + commonIdDescription,
+          },
+        },
+      },
+      discussion_id: {
+        type: "string",
+        description:
+          "The ID of an existing discussion thread to add a comment to." +
+          commonIdDescription,
+      },
+      rich_text: {
+        type: "array",
+        description:
+          "Array of rich text objects representing the comment content.",
+        items: richTextObjectSchema,
+      },
+      format: formatParameter,
+    },
+    required: ["rich_text"],
+  },
+};
+
+export const retrieveCommentsTool: Tool = {
+  name: "notion_retrieve_comments",
+  description:
+    "Retrieve a list of unresolved comments from a Notion page or block. Requires the integration to have 'read comment' capabilities.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      block_id: {
+        type: "string",
+        description:
+          "The ID of the block or page whose comments you want to retrieve." +
+          commonIdDescription,
+      },
+      start_cursor: {
+        type: "string",
+        description:
+          "If supplied, returns a page of results starting after the cursor.",
+      },
+      page_size: {
+        type: "number",
+        description: "Number of comments to retrieve (max 100).",
+      },
+      format: formatParameter,
+    },
+    required: ["block_id"],
+  },
+};
+
+// Search tool
+export const searchTool: Tool = {
+  name: "notion_search",
+  description: "Search pages or databases by title in Notion",
+  inputSchema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "Text to search for in page or database titles",
+      },
+      filter: {
+        type: "object",
+        description: "Filter results by object type (page or database)",
+        properties: {
+          property: {
+            type: "string",
+            description: "Must be 'object'",
+          },
+          value: {
+            type: "string",
+            description: "Either 'page' or 'database'",
+          },
+        },
+      },
+      sort: {
+        type: "object",
+        description: "Sort order of results",
+        properties: {
+          direction: {
+            type: "string",
+            enum: ["ascending", "descending"],
+          },
+          timestamp: {
+            type: "string",
+            enum: ["last_edited_time"],
+          },
+        },
+      },
+      start_cursor: {
+        type: "string",
+        description: "Pagination start cursor",
+      },
+      page_size: {
+        type: "number",
+        description: "Number of results to return (max 100). ",
+      },
+      format: formatParameter,
+    },
+  },
+};
+
+
+
+================================================
+FILE: src/utils/index.ts
+================================================
+/**
+ * Utility functions
+ */
+
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+
+/**
+ * Filter tools based on enabledTools parameter
+ */
+export function filterTools(
+  tools: Tool[],
+  enabledToolsSet: Set<string> = new Set()
+): Tool[] {
+  if (enabledToolsSet.size === 0) return tools;
+  return tools.filter((tool) => enabledToolsSet.has(tool.name));
+}
+
+
