@@ -20,14 +20,12 @@ function PureChatHeader({
   selectedVisibilityType,
   isReadonly,
   session,
-  initialNotionIsConfigured,
 }: {
   chatId: string;
   selectedModelId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
-  initialNotionIsConfigured: boolean;
 }) {
   const router = useRouter();
   const { open } = useSidebar();
@@ -74,11 +72,7 @@ function PureChatHeader({
       )} */}
 
       {!isReadonly && (
-        <NotionConnector
-          chatId={chatId}
-          initialIsConfigured={initialNotionIsConfigured}
-          className="order-1 md:order-4"
-        />
+        <NotionConnector chatId={chatId} className="order-1 md:order-4" />
       )}
     </header>
   );
@@ -87,7 +81,6 @@ function PureChatHeader({
 export const ChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
   return (
     prevProps.selectedModelId === nextProps.selectedModelId &&
-    prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
-    prevProps.initialNotionIsConfigured === nextProps.initialNotionIsConfigured
+    prevProps.selectedVisibilityType === nextProps.selectedVisibilityType
   );
 });

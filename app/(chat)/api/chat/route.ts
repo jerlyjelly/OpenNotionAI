@@ -73,8 +73,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      selectedChatModel,
+      selectedVisibilityType,
+      notionToken,
+    } = requestBody;
 
     const session = await auth();
 
@@ -172,8 +177,10 @@ export async function POST(request: Request) {
           experimental_generateMessageId: generateUUID,
           tools: {
             getWeather,
-            notionPostSearch,
-            notionGetUser,
+            notionPostSearch: notionPostSearch({
+              notionToken: notionToken ?? null,
+            }),
+            notionGetUser: notionGetUser({ notionToken: notionToken ?? null }),
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({

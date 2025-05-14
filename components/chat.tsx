@@ -28,7 +28,6 @@ export function Chat({
   isReadonly,
   session,
   autoResume,
-  initialNotionIsConfigured, // Add this new prop
 }: {
   id: string;
   initialMessages: Array<UIMessage>;
@@ -37,7 +36,6 @@ export function Chat({
   isReadonly: boolean;
   session: Session;
   autoResume: boolean;
-  initialNotionIsConfigured: boolean; // Define the type for the new prop
 }) {
   const { mutate } = useSWRConfig();
 
@@ -64,12 +62,19 @@ export function Chat({
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
-    experimental_prepareRequestBody: (body) => ({
-      id,
-      message: body.messages.at(-1),
-      selectedChatModel: initialChatModel,
-      selectedVisibilityType: visibilityType,
-    }),
+    experimental_prepareRequestBody: (body) => {
+      const notionToken = localStorage.getItem('notionIntegrationSecret');
+      const requestBody: any = {
+        id,
+        message: body.messages.at(-1),
+        selectedChatModel: initialChatModel,
+        selectedVisibilityType: visibilityType,
+      };
+      if (notionToken) {
+        requestBody.notionToken = notionToken;
+      }
+      return requestBody;
+    },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
@@ -123,7 +128,6 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
           isReadonly={isReadonly}
           session={session}
-          initialNotionIsConfigured={initialNotionIsConfigured} // Pass the prop here
         />
 
         <Messages

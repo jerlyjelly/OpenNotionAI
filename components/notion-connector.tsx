@@ -21,37 +21,44 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'; // For icon tooltip
 
+const NOTION_TOKEN_LOCAL_STORAGE_KEY = 'notionIntegrationSecret';
+
 export function NotionConnector({
   chatId,
   className,
-  initialIsConfigured, // True if Notion is considered configured for this chat initially
+  // initialIsConfigured, // True if Notion is considered configured for this chat initially
 }: {
   chatId: string;
-  initialIsConfigured: boolean;
+  // initialIsConfigured: boolean;
 } & Omit<React.ComponentProps<typeof Button>, 'children'>) {
   const [open, setOpen] = useState(false);
   const [secretInputValue, setSecretInputValue] = useState('');
-  const [isConfigured, setIsConfigured] = useState(initialIsConfigured);
+  const [isConfigured, setIsConfigured] = useState(false);
 
   useEffect(() => {
-    setIsConfigured(initialIsConfigured);
-    // When configuration status changes externally, clear input if not configured.
-    // This component doesn't display an existing secret, only accepts new/updated input.
-    if (!initialIsConfigured) {
-      setSecretInputValue('');
+    const storedToken = localStorage.getItem(NOTION_TOKEN_LOCAL_STORAGE_KEY);
+    if (storedToken) {
+      setIsConfigured(true);
+      // We don't set secretInputValue to the stored token for security.
+      // The input field is for entering a new/updated token.
+    } else {
+      setIsConfigured(false);
+      setSecretInputValue(''); // Clear input if no token is found
     }
-  }, [initialIsConfigured]);
+  }, []);
 
   const handleSaveSecret = () => {
-    // In a real application, you would make an API call here to securely save
-    // and validate the secretInputValue.
     if (secretInputValue.trim()) {
+      localStorage.setItem(
+        NOTION_TOKEN_LOCAL_STORAGE_KEY,
+        secretInputValue.trim(),
+      );
       console.log(
-        `Simulating save of Notion Integration Secret for chat ${chatId}: ${secretInputValue.substring(0, 5)}...`,
-      ); // Avoid logging full secret
+        `Saved Notion Integration Secret for chat ${chatId} to local storage.`,
+      );
       setIsConfigured(true);
       // setSecretInputValue(''); // Optionally clear input after successful save
-      setOpen(false); // Close dropdown after action
+      setOpen(false);
     }
   };
 
@@ -67,9 +74,9 @@ export function NotionConnector({
   };
 
   const handleClearSecret = () => {
-    // In a real application, you would make an API call here to clear the stored secret.
+    localStorage.removeItem(NOTION_TOKEN_LOCAL_STORAGE_KEY);
     console.log(
-      `Simulating clear of Notion Integration Secret for chat ${chatId}`,
+      `Cleared Notion Integration Secret for chat ${chatId} from local storage.`,
     );
     setSecretInputValue('');
     setIsConfigured(false);
