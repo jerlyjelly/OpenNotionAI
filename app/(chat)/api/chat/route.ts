@@ -45,6 +45,7 @@ import {
 import { after } from 'next/server';
 import type { Chat } from '@/lib/db/schema';
 import { differenceInSeconds } from 'date-fns';
+import { notionRetrieveAPage } from '@/lib/ai/tools/notion-retrieve-a-page';
 
 export const maxDuration = 60;
 
@@ -188,6 +189,7 @@ export async function POST(request: Request) {
                   'notionRetrieveABlock',
                   'notionUpdateABlock',
                   'notionDeleteABlock',
+                  'notionRetrieveAPage',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -217,6 +219,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionDeleteABlock: notionDeleteABlock({
+              notionToken: notionToken ?? null,
+            }),
+            notionRetrieveAPage: notionRetrieveAPage({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
