@@ -11,6 +11,7 @@ import { useSidebar } from './ui/sidebar';
 import { memo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
+import { NotionConnector } from './notion-connector';
 import type { Session } from 'next-auth';
 
 function PureChatHeader({
@@ -19,12 +20,14 @@ function PureChatHeader({
   selectedVisibilityType,
   isReadonly,
   session,
+  initialNotionIsConfigured,
 }: {
   chatId: string;
   selectedModelId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
+  initialNotionIsConfigured: boolean;
 }) {
   const router = useRouter();
   const { open } = useSidebar();
@@ -62,11 +65,19 @@ function PureChatHeader({
         />
       )}
 
-      {!isReadonly && (
+      {/* {!isReadonly && (
         <VisibilitySelector
           chatId={chatId}
           selectedVisibilityType={selectedVisibilityType}
           className="order-1 md:order-3"
+        />
+      )} */}
+
+      {!isReadonly && (
+        <NotionConnector
+          chatId={chatId}
+          initialIsConfigured={initialNotionIsConfigured}
+          className="order-1 md:order-4"
         />
       )}
     </header>
@@ -74,5 +85,9 @@ function PureChatHeader({
 }
 
 export const ChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
-  return prevProps.selectedModelId === nextProps.selectedModelId;
+  return (
+    prevProps.selectedModelId === nextProps.selectedModelId &&
+    prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
+    prevProps.initialNotionIsConfigured === nextProps.initialNotionIsConfigured
+  );
 });
