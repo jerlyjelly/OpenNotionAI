@@ -25,6 +25,7 @@ import { notionGetSelf } from '@/lib/ai/tools/notion-get-self';
 import { notionPostDatabaseQuery } from '@/lib/ai/tools/notion-post-database-query';
 import { notionGetUsers } from '@/lib/ai/tools/notion-get-users';
 import { notionGetBlockChildren } from '@/lib/ai/tools/notion-get-block-children';
+import { notionPatchBlockChildren } from '@/lib/ai/tools/notion-patch-block-children';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -180,6 +181,7 @@ export async function POST(request: Request) {
                   'notionPostDatabaseQuery',
                   'notionGetUsers',
                   'notionGetBlockChildren',
+                  'notionPatchBlockChildren',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -197,6 +199,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionGetBlockChildren: notionGetBlockChildren({
+              notionToken: notionToken ?? null,
+            }),
+            notionPatchBlockChildren: notionPatchBlockChildren({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
