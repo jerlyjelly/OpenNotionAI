@@ -21,6 +21,7 @@ import { generateUUID, getTrailingMessageId } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
 import { notionPostSearch } from '@/lib/ai/tools/notion-post-search';
 import { notionGetUser } from '@/lib/ai/tools/notion-get-user';
+import { notionGetSelf } from '@/lib/ai/tools/notion-get-self';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -172,6 +173,7 @@ export async function POST(request: Request) {
                   'requestSuggestions',
                   'notionPostSearch',
                   'notionGetUser',
+                  'notionGetSelf',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -181,6 +183,7 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionGetUser: notionGetUser({ notionToken: notionToken ?? null }),
+            notionGetSelf: notionGetSelf({ notionToken: notionToken ?? null }),
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({
