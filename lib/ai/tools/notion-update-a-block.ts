@@ -7,7 +7,7 @@ const NOTION_API_BASE_URL = 'https://api.notion.com/v1';
 // --- Schemas for Rich Text (can be shared/imported if available elsewhere) ---
 const LinkObjectSchema = z
   .object({
-    url: z.string().url().describe('The URL the text should link to.'),
+    url: z.string().describe('The URL the text should link to.'),
   })
   .strict();
 
