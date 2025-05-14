@@ -22,6 +22,7 @@ import { generateTitleFromUserMessage } from '../../actions';
 import { notionPostSearch } from '@/lib/ai/tools/notion-post-search';
 import { notionGetUser } from '@/lib/ai/tools/notion-get-user';
 import { notionGetSelf } from '@/lib/ai/tools/notion-get-self';
+import { notionPostDatabaseQuery } from '@/lib/ai/tools/notion-post-database-query';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -174,6 +175,7 @@ export async function POST(request: Request) {
                   'notionPostSearch',
                   'notionGetUser',
                   'notionGetSelf',
+                  'notionPostDatabaseQuery',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -184,6 +186,9 @@ export async function POST(request: Request) {
             }),
             notionGetUser: notionGetUser({ notionToken: notionToken ?? null }),
             notionGetSelf: notionGetSelf({ notionToken: notionToken ?? null }),
+            notionPostDatabaseQuery: notionPostDatabaseQuery({
+              notionToken: notionToken ?? null,
+            }),
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({
