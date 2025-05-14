@@ -16,6 +16,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
+import Image from 'next/image';
+import LogoLight from '@/public/images/logo-light.svg';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 export function AppSidebar({ user }: { user: User | undefined }) {
@@ -26,16 +28,22 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     <Sidebar className="group-data-[side=left]:border-r-0">
       <SidebarHeader>
         <SidebarMenu>
-          <div className="flex flex-row justify-between items-center">
+          <div className="flex flex-row justify-between items-center px-2">
             <Link
               href="/"
               onClick={() => {
                 setOpenMobile(false);
               }}
-              className="flex flex-row gap-3 items-center"
+              className="flex flex-row gap-1 items-center"
             >
+              <Image
+                src={LogoLight}
+                alt="OpenNotionAI Logo"
+                width={24}
+                height={24}
+              />
               <span className="text-lg font-semibold px-2 hover:bg-muted rounded-md cursor-pointer">
-                Chatbot
+                OpenNotionAI
               </span>
             </Link>
             <Tooltip>
