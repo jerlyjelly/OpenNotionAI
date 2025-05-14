@@ -20,6 +20,7 @@ import {
 import { generateUUID, getTrailingMessageId } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
 import { notionPostSearch } from '@/lib/ai/tools/notion-post-search';
+import { notionGetUser } from '@/lib/ai/tools/notion-get-user';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
@@ -165,12 +166,14 @@ export async function POST(request: Request) {
                   'updateDocument',
                   'requestSuggestions',
                   'notionPostSearch',
+                  'notionGetUser',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
           tools: {
             getWeather,
             notionPostSearch,
+            notionGetUser,
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({
