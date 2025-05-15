@@ -24,7 +24,9 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': google('gemini-2.5-flash-preview-04-17'), // Changed to google gemini
+        'chat-model': google('gemini-2.5-flash-preview-04-17', {
+          useSearchGrounding: true,
+        }), // Changed to google gemini
         'chat-model-reasoning': wrapLanguageModel({
           model: xai('grok-3-mini-beta'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
