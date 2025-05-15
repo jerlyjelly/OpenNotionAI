@@ -53,6 +53,7 @@ import { notionRetrieveAComment } from '@/lib/ai/tools/notion-retrieve-a-comment
 import { notionCreateAComment } from '@/lib/ai/tools/notion-create-a-comment';
 import { notionRetrieveADatabase } from '@/lib/ai/tools/notion-retrieve-a-database';
 import { notionUpdateADatabase } from '@/lib/ai/tools/notion-update-a-database';
+import { notionCreateADatabase } from '@/lib/ai/tools/notion-create-a-database';
 
 export const maxDuration = 60;
 
@@ -204,6 +205,7 @@ export async function POST(request: Request) {
                   'notionCreateAComment',
                   'notionRetrieveADatabase',
                   'notionUpdateADatabase',
+                  'notionCreateADatabase',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -257,6 +259,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionUpdateADatabase: notionUpdateADatabase({
+              notionToken: notionToken ?? null,
+            }),
+            notionCreateADatabase: notionCreateADatabase({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
