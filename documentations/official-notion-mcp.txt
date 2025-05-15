@@ -1876,6 +1876,7 @@ FILE: scripts/notion-openapi.json
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["parent","properties"],
                 "required": [
                   "parent",
                   "properties"
@@ -1885,6 +1886,7 @@ FILE: scripts/notion-openapi.json
                     "type": "object",
                     "properties": {
                       "type": {
+                        "enum": ["page_id"]
                         "enum": [
                           "page_id"
                         ],
@@ -1895,6 +1897,7 @@ FILE: scripts/notion-openapi.json
                         "format": "uuid"
                       }
                     },
+                    "required": ["type", "page_id"]
                     "required": [
                       "type",
                       "page_id"
@@ -1920,6 +1923,7 @@ FILE: scripts/notion-openapi.json
                             }
                           },
                           "additionalProperties": false,
+                          "required": ["title"]
                           "required": [
                             "title"
                           ]
@@ -1931,6 +1935,7 @@ FILE: scripts/notion-openapi.json
                     "type": "array",
                     "items": {
                       "type": "object",
+                      "required": ["text"],
                       "required": [
                         "text"
                       ],
@@ -1943,6 +1948,7 @@ FILE: scripts/notion-openapi.json
                               "maxLength": 2000
                             },
                             "link": {
+                              "type": ["object", "null"],
                               "type": [
                                 "object",
                                 "null"
@@ -1952,17 +1958,20 @@ FILE: scripts/notion-openapi.json
                                   "type": "string"
                                 }
                               },
+                              "required": ["url"]
                               "required": [
                                 "url"
                               ]
                             }
                           },
                           "additionalProperties": false,
+                          "required": ["content"]
                           "required": [
                             "content"
                           ]
                         },
                         "type": {
+                          "enum": ["text"]
                           "enum": [
                             "text"
                           ],
