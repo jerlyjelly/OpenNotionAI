@@ -48,6 +48,7 @@ import { differenceInSeconds } from 'date-fns';
 import { notionRetrieveAPage } from '@/lib/ai/tools/notion-retrieve-a-page';
 import { notionPatchPage } from '@/lib/ai/tools/notion-patch-page';
 import { notionPostPage } from '@/lib/ai/tools/notion-post-page';
+import { notionRetrieveAPageProperty } from '@/lib/ai/tools/notion-retrieve-a-page-property';
 
 export const maxDuration = 60;
 
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
                   'notionRetrieveAPage',
                   'notionPatchPage',
                   'notionPostPage',
+                  'notionRetrieveAPageProperty',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -232,6 +234,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionPostPage: notionPostPage({
+              notionToken: notionToken ?? null,
+            }),
+            notionRetrieveAPageProperty: notionRetrieveAPageProperty({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
