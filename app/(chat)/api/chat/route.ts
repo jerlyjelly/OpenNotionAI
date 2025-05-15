@@ -49,6 +49,7 @@ import { notionRetrieveAPage } from '@/lib/ai/tools/notion-retrieve-a-page';
 import { notionPatchPage } from '@/lib/ai/tools/notion-patch-page';
 import { notionPostPage } from '@/lib/ai/tools/notion-post-page';
 import { notionRetrieveAPageProperty } from '@/lib/ai/tools/notion-retrieve-a-page-property';
+import { notionRetrieveAComment } from '@/lib/ai/tools/notion-retrieve-a-comment';
 
 export const maxDuration = 60;
 
@@ -196,6 +197,7 @@ export async function POST(request: Request) {
                   'notionPatchPage',
                   'notionPostPage',
                   'notionRetrieveAPageProperty',
+                  'notionRetrieveAComment',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
@@ -237,6 +239,9 @@ export async function POST(request: Request) {
               notionToken: notionToken ?? null,
             }),
             notionRetrieveAPageProperty: notionRetrieveAPageProperty({
+              notionToken: notionToken ?? null,
+            }),
+            notionRetrieveAComment: notionRetrieveAComment({
               notionToken: notionToken ?? null,
             }),
             createDocument: createDocument({ session, dataStream }),
